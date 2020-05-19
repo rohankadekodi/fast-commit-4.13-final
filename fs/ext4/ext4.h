@@ -965,6 +965,7 @@ struct ext4_fc_dentry_update {
 	int fcd_op;		/* Type of update create / add / del */
 	int fcd_parent;		/* Parent inode number */
 	int fcd_ino;		/* Inode number */
+	int fcd_delete;
 	struct qstr fcd_name;	/* Dirent name qstr */
 	unsigned char fcd_iname[DNAME_INLINE_LEN];	/* Dirent name string */
 	struct list_head fcd_list;
@@ -1617,8 +1618,14 @@ struct ext4_sb_info {
     struct list_head s_fc_q;	/* Inodes staged for fast commit
                                  * that have data changes in them.
                                  */
+	/* Ext4 fast commit stuff */
+	int s_fc_q_locked;
+	struct list_head s_fc_staging_q;/* Inodes staged for fast commit
+					 * that have data changes in them.
+					 */
 	struct list_head s_fc_dentry_q;
     spinlock_t s_fc_lock;
+	wait_queue_head_t	s_fc_wait_q;
 	struct ext4_fc_stats s_fc_stats;
 };
 
@@ -1659,11 +1666,8 @@ enum {
 					   nolocking */
 	EXT4_STATE_MAY_INLINE_DATA,	/* may have in-inode data */
 	EXT4_STATE_EXT_PRECACHED,	/* extents have been precached */
-    EXT4_STATE_FC_ELIGIBLE,     /* File is Fast commit eligible */
-    EXT4_STATE_FC_DATA_SUBMIT,  /* File is going through fast commit */
-    EXT4_STATE_FC_MDATA_SUBMIT, /* Fast commit block is
-                                 * being submitted
-                                 */
+	EXT4_STATE_FC_ELIGIBLE,		/* File is Fast commit eligible */
+	EXT4_STATE_FC_COMMITTING
 };
 
 #define EXT4_INODE_BIT_FNS(name, field, offset)				\

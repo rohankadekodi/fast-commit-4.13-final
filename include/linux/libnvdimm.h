@@ -18,6 +18,7 @@
 #include <linux/sizes.h>
 #include <linux/types.h>
 #include <linux/uuid.h>
+#include <linux/bio.h>
 
 enum {
 	/* when a dimm supports both PMEM and BLK access a label is required */
@@ -32,6 +33,8 @@ enum {
 	ND_CMD_MAX_ELEM = 5,
 	ND_CMD_MAX_ENVELOPE = 256,
 	ND_MAX_MAPPINGS = 32,
+
+  ND_REGION_ASYNC = 3,
 
 	/* region flag indicating to direct-map persistent memory by default */
 	ND_REGION_PAGEMAP = 0,
@@ -89,6 +92,7 @@ struct nd_mapping_desc {
 	u64 size;
 };
 
+struct nd_region;
 struct nd_region_desc {
 	struct resource *res;
 	struct nd_mapping_desc *mapping;
@@ -99,6 +103,7 @@ struct nd_region_desc {
 	int num_lanes;
 	int numa_node;
 	unsigned long flags;
+  int (*flush)(struct nd_region *nd_region, struct bio *bio);
 };
 
 struct device;
@@ -170,7 +175,8 @@ unsigned long nd_blk_memremap_flags(struct nd_blk_region *ndbr);
 unsigned int nd_region_acquire_lane(struct nd_region *nd_region);
 void nd_region_release_lane(struct nd_region *nd_region, unsigned int lane);
 u64 nd_fletcher64(void *addr, size_t len, bool le);
-void nvdimm_flush(struct nd_region *nd_region);
+int nvdimm_flush(struct nd_region *nd_region, struct bio *bio);
+int generic_nvdimm_flush(struct nd_region *nd_region);
 int nvdimm_has_flush(struct nd_region *nd_region);
 int nvdimm_has_cache(struct nd_region *nd_region);
 #endif /* __LIBNVDIMM_H__ */

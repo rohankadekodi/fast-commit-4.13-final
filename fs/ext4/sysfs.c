@@ -18,6 +18,7 @@
 typedef enum {
 	attr_noop,
 	attr_delayed_allocation_blocks,
+    attr_free_blocks,
 	attr_session_write_kbytes,
 	attr_lifetime_write_kbytes,
 	attr_reserved_clusters,
@@ -163,6 +164,7 @@ static struct ext4_attr ext4_attr_##_name = {			\
 #define ATTR_LIST(name) &ext4_attr_##name.attr
 
 EXT4_ATTR_FUNC(delayed_allocation_blocks, 0444);
+EXT4_ATTR_FUNC(free_blocks, 0444);
 EXT4_ATTR_FUNC(session_write_kbytes, 0444);
 EXT4_ATTR_FUNC(lifetime_write_kbytes, 0444);
 EXT4_ATTR_FUNC(reserved_clusters, 0644);
@@ -193,6 +195,7 @@ EXT4_ATTR_PTR(max_writeback_mb_bump, 0444, pointer_ui, &old_bump_val);
 
 static struct attribute *ext4_attrs[] = {
 	ATTR_LIST(delayed_allocation_blocks),
+	ATTR_LIST(free_blocks),
 	ATTR_LIST(session_write_kbytes),
 	ATTR_LIST(lifetime_write_kbytes),
 	ATTR_LIST(reserved_clusters),
@@ -265,6 +268,10 @@ static ssize_t ext4_attr_show(struct kobject *kobj,
 		return snprintf(buf, PAGE_SIZE, "%llu\n",
 				(s64) EXT4_C2B(sbi,
 		       percpu_counter_sum(&sbi->s_dirtyclusters_counter)));
+	case attr_free_blocks:
+		return snprintf(buf, PAGE_SIZE, "%llu\n",
+				(s64) EXT4_C2B(sbi,
+		       percpu_counter_sum(&sbi->s_freeclusters_counter)));
 	case attr_session_write_kbytes:
 		return session_write_kbytes_show(a, sbi, buf);
 	case attr_lifetime_write_kbytes:

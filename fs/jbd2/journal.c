@@ -825,6 +825,15 @@ void jbd2_stop_async_fc(journal_t *journal, tid_t tid)
 	wake_up(&journal->j_wait_async_fc);
 }
 
+int jbd2_is_fast_commit_ongoing(journal_t *journal)
+{
+	int ret;
+
+	read_lock(&journal->j_state_lock);
+	ret = journal->j_flags & JBD2_FAST_COMMIT_ONGOING;
+	read_unlock(&journal->j_state_lock);
+	return ret;
+}
 /*
  * When this function returns the transaction corresponding to tid
  * will be completed.  If the transaction has currently running, start

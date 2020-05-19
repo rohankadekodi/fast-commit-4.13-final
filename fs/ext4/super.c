@@ -1000,14 +1000,6 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
 static int ext4_drop_inode(struct inode *inode)
 {
 	int drop = generic_drop_inode(inode);
-	/*
-	if (drop) {
-		spin_unlock(&inode->i_lock);
-		if (!list_empty(&EXT4_I(inode)->i_fc_list))
-			drop = 0;
-		spin_lock(&inode->i_lock);
-	}
-	*/
 
 	trace_ext4_drop_inode(inode, drop);
 	return drop;
@@ -1030,15 +1022,6 @@ static void ext4_destroy_inode(struct inode *inode)
 				true);
 		dump_stack();
 	}
-
-	if (!list_empty(&EXT4_I(inode)->i_fc_list)) {
-		spin_lock(&EXT4_SB(inode->i_sb)->s_fc_lock);
-		list_del_init(&EXT4_I(inode)->i_fc_list);
-		spin_unlock(&EXT4_SB(inode->i_sb)->s_fc_lock);
-		return;
-	}
-	
-	call_rcu(&inode->i_rcu, ext4_i_callback);
 }
 
 static void init_once(void *foo)
@@ -1080,9 +1063,9 @@ void ext4_clear_inode(struct inode *inode)
 	ext4_fc_del(inode);
 	invalidate_inode_buffers(inode);
 	clear_inode(inode);
-	dquot_drop(inode);
 	ext4_discard_preallocations(inode);
 	ext4_es_remove_extent(inode, 0, EXT_MAX_BLOCKS);
+	dquot_drop(inode);
 	if (EXT4_I(inode)->jinode) {
 		jbd2_journal_release_jbd_inode(EXT4_JOURNAL(inode),
 					       EXT4_I(inode)->jinode);
@@ -4027,7 +4010,9 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	INIT_LIST_HEAD(&sbi->s_orphan); /* unlinked but open files */
 	mutex_init(&sbi->s_orphan_lock);
 
+	sbi->s_fc_q_locked = 1;
 	INIT_LIST_HEAD(&sbi->s_fc_q);
+	INIT_LIST_HEAD(&sbi->s_fc_staging_q);
 	INIT_LIST_HEAD(&sbi->s_fc_dentry_q);
 	sbi->s_mount_state &= ~EXT4_FC_INELIGIBLE;
 	spin_lock_init(&sbi->s_fc_lock);

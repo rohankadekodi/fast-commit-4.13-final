@@ -357,8 +357,7 @@ void ext4_init_inode_fc_info(struct inode *inode)
 	struct ext4_inode_info *ei = EXT4_I(inode);
 
 	ext4_reset_inode_fc_info(inode);
-	ext4_clear_inode_state(inode, EXT4_STATE_FC_DATA_SUBMIT);
-	ext4_clear_inode_state(inode, EXT4_STATE_FC_MDATA_SUBMIT);
+	ext4_clear_inode_state(inode, EXT4_STATE_FC_COMMITTING);
 	INIT_LIST_HEAD(&ei->i_fc_list);
 }
 
@@ -371,8 +370,12 @@ static void ext4_fc_enqueue_inode(struct inode *inode)
 		return;
 
 	spin_lock(&sbi->s_fc_lock);
-	if (list_empty(&EXT4_I(inode)->i_fc_list))
-		list_add_tail(&EXT4_I(inode)->i_fc_list, &sbi->s_fc_q);
+	if (list_empty(&EXT4_I(inode)->i_fc_list)) {
+		if (sbi->s_fc_q_locked)
+			list_add_tail(&EXT4_I(inode)->i_fc_list, &sbi->s_fc_staging_q);
+		else
+			list_add_tail(&EXT4_I(inode)->i_fc_list, &sbi->s_fc_q);
+	}
 	spin_unlock(&sbi->s_fc_lock);
 }
 
@@ -389,24 +392,26 @@ void ext4_fc_del(struct inode *inode)
 	    (EXT4_SB(inode->i_sb)->s_mount_state & EXT4_FC_REPLAY))
 		return;
 
-	if (list_empty(&EXT4_I(inode)->i_fc_list))
-		return;
-
 restart:
 	spin_lock(&EXT4_SB(inode->i_sb)->s_fc_lock);
-	if (ext4_test_inode_state(inode, EXT4_STATE_FC_DATA_SUBMIT)) {
+	if (list_empty(&EXT4_I(inode)->i_fc_list)) {
+		spin_unlock(&EXT4_SB(inode->i_sb)->s_fc_lock);
+		return;
+	}
+
+	if (ext4_test_inode_state(inode, EXT4_STATE_FC_COMMITTING)) {
 		struct ext4_inode_info *ei = EXT4_I(inode);
 		wait_queue_head_t *wq;
 #if (BITS_PER_LONG < 64)
 		DEFINE_WAIT_BIT(wait, &ei->i_state_flags,
-				EXT4_STATE_FC_DATA_SUBMIT);
+				EXT4_STATE_FC_COMMITTING);
 		wq = bit_waitqueue(&ei->i_state_flags,
-				   EXT4_STATE_FC_DATA_SUBMIT);
+				   EXT4_STATE_FC_COMMITTING);
 #else
 		DEFINE_WAIT_BIT(wait, &ei->i_flags,
-				EXT4_STATE_FC_DATA_SUBMIT);
+				EXT4_STATE_FC_COMMITTING);
 		wq = bit_waitqueue(&ei->i_flags,
-				   EXT4_STATE_FC_DATA_SUBMIT);
+				   EXT4_STATE_FC_COMMITTING);
 #endif
 		prepare_to_wait(wq, &wait.wq_entry, TASK_UNINTERRUPTIBLE);
 		spin_unlock(&EXT4_SB(inode->i_sb)->s_fc_lock);
@@ -476,7 +481,6 @@ static int __ext4_fc_track_template(
 		return -EOPNOTSUPP;
 
 	write_lock(&ei->i_fc_lock);
-	ext4_clear_inode_state(inode, EXT4_STATE_FC_MDATA_SUBMIT);
 	if (running_txn_tid == ei->i_fc_tid) {
 		if (!ext4_test_inode_state(inode, EXT4_STATE_FC_ELIGIBLE)) {
 			write_unlock(&ei->i_fc_lock);
@@ -517,6 +521,7 @@ static int __ext4_dentry_update(struct inode *inode, void *arg, bool update)
 		return -ENOMEM;
 	}
 
+	node->fcd_delete = 0;
 	node->fcd_op = dentry_update->op;
 	node->fcd_parent = dentry->d_parent->d_inode->i_ino;
 	node->fcd_ino = inode->i_ino;
@@ -853,7 +858,6 @@ static int fc_commit_data_inode(journal_t *journal, struct inode *inode)
 	hdr->fc_csum = cpu_to_le32(ext4_chksum(EXT4_SB(inode->i_sb),
 					       0, start, end - start));
 	submit_fc_bh(bh);
-	ext4_set_inode_state(inode, EXT4_STATE_FC_MDATA_SUBMIT);
 
 	return 1;
 }
@@ -867,14 +871,16 @@ static int submit_all_inode_data(journal_t *journal)
 	int ret = 0;
 
 	spin_lock(&sbi->s_fc_lock);
+	sbi->s_fc_q_locked = 1;
 	list_for_each(pos, &sbi->s_fc_q) {
 		iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
 		ext4_set_inode_state(&iter->vfs_inode,
-				     EXT4_STATE_FC_DATA_SUBMIT);
+				     EXT4_STATE_FC_COMMITTING);
 		spin_unlock(&sbi->s_fc_lock);
 		ret = jbd2_submit_inode_data(journal, iter->jinode);
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 		spin_lock(&sbi->s_fc_lock);
 	}
 	spin_unlock(&sbi->s_fc_lock);
@@ -889,28 +895,19 @@ static int wait_all_inode_data(journal_t *journal)
 	struct ext4_inode_info *pos, *n;
 	int ret = 0;
 
+
 	spin_lock(&sbi->s_fc_lock);
 	list_for_each_entry_safe(pos, n, &sbi->s_fc_q, i_fc_list) {
 		if (!ext4_test_inode_state(&pos->vfs_inode,
-					   EXT4_STATE_FC_DATA_SUBMIT))
+					   EXT4_STATE_FC_COMMITTING))
 			continue;
 		spin_unlock(&sbi->s_fc_lock);
-		ret = jbd2_wait_inode_data(journal, pos->jinode);
-		if (ret)
-			break;
-		spin_lock(&sbi->s_fc_lock);
-		list_safe_reset_next(pos, n, i_fc_list);
-		list_del_init(&pos->i_fc_list);
 
-		ext4_clear_inode_state(&pos->vfs_inode,
-				       EXT4_STATE_FC_DATA_SUBMIT);
-		/* Make sure DATA_SUBMIT bit is set before waking up */
-		smp_mb();
-#if (BITS_PER_LONG < 64)
-		wake_up_bit(&pos->i_state_flags, EXT4_STATE_FC_DATA_SUBMIT);
-#else
-		wake_up_bit(&pos->i_flags, EXT4_STATE_FC_DATA_SUBMIT);
-#endif
+		ret = jbd2_wait_inode_data(journal, pos->jinode);
+		if (ret) {
+			return ret;
+		}
+		spin_lock(&sbi->s_fc_lock);
 	}
 	spin_unlock(&sbi->s_fc_lock);
 
@@ -921,15 +918,18 @@ static int fc_inode_match(struct inode *inode, void *data)
 {
 	if (inode->i_ino != (long)data)
 		return 0;
+	return 1;
 
 	if (inode->i_nlink)
 		return 1;
+
+	spin_lock(&EXT4_SB(inode->i_sb)->s_fc_lock);
 
 	/*
 	 * Avoid returning a nearly dead inode (withi_nlink == 0).
 	 */
 	if (ext4_test_inode_state(inode,
-		EXT4_STATE_FC_DATA_SUBMIT)) {
+		EXT4_STATE_FC_COMMITTING)) {
 		/*
 		 * This is a tricky situation, after we
 		 * submitted data for this inode, someone
@@ -941,18 +941,46 @@ static int fc_inode_match(struct inode *inode, void *data)
 		 *   and indicate the caller that this is a deleted inode.
 		 */
 		ext4_clear_inode_state(
-			inode, EXT4_STATE_FC_DATA_SUBMIT);
+			inode, EXT4_STATE_FC_COMMITTING);
 		/* Make sure that data_submit bit is set */
 		smp_mb();
 #if (BITS_PER_LONG < 64)
 		wake_up_bit(&EXT4_I(inode)->i_state_flags,
-			EXT4_STATE_FC_DATA_SUBMIT);
+			EXT4_STATE_FC_COMMITTING);
 #else
 		wake_up_bit(&EXT4_I(inode)->i_flags,
-			EXT4_STATE_FC_DATA_SUBMIT);
+			EXT4_STATE_FC_COMMITTING);
 #endif
 	}
+	spin_unlock(&EXT4_SB(inode->i_sb)->s_fc_lock);
 	return 0;
+}
+
+static void fc_dentry_q_shrink(struct ext4_sb_info *sbi)
+{
+	struct ext4_fc_dentry_update *fc_dentry, *fc_dentry1;
+	struct list_head *pos, *n, *pos1;
+
+	spin_lock(&sbi->s_fc_lock);
+	list_for_each_safe(pos, n, &sbi->s_fc_dentry_q) {
+		fc_dentry = list_entry(pos, struct ext4_fc_dentry_update,
+				       fcd_list);
+		if (fc_dentry->fcd_delete) {
+			list_del_init(&fc_dentry->fcd_list);
+			kmem_cache_free(ext4_fc_dentry_cachep, fc_dentry);
+			continue;
+		}
+		if (fc_dentry->fcd_op != EXT4_FC_TAG_CREAT_DENTRY)
+			continue;
+		list_for_each(pos1, &sbi->s_fc_dentry_q) {
+			fc_dentry1 = list_entry(pos1, struct ext4_fc_dentry_update,
+				       fcd_list);
+			if ((fc_dentry->fcd_ino == fc_dentry1->fcd_ino) &&
+			    fc_dentry1->fcd_op == EXT4_FC_TAG_DEL_DENTRY)
+				fc_dentry1->fcd_delete = 1;
+		}
+	}
+	spin_unlock(&sbi->s_fc_lock);
 }
 
 /*
@@ -968,6 +996,8 @@ static int fc_commit_dentry_updates(journal_t *journal,
 	struct ext4_fc_dentry_update *fc_dentry;
 	struct inode *inode;
 	struct buffer_head *bh;
+	struct list_head *pos, *n;
+	struct ext4_inode_info *iter;
 	u8 *start, *cur, *end;
 	int len, ret;
 	int nblks = 0;
@@ -981,6 +1011,8 @@ static int fc_commit_dentry_updates(journal_t *journal,
 	start = cur = ((__u8 *)bh->b_data + sizeof(journal_header_t));
 	end = (__u8 *)bh->b_data + journal->j_blocksize;
 	hdr = (struct ext4_fc_commit_hdr *)start;
+
+	fc_dentry_q_shrink(sbi);
 
 	spin_lock(&sbi->s_fc_lock);
 	while (!list_empty(&sbi->s_fc_dentry_q)) {
@@ -998,32 +1030,38 @@ static int fc_commit_dentry_updates(journal_t *journal,
 			return -ENOSPC;
 		}
 		num_tlvs++;
-		inode = ilookup5_nowait(sb, fc_dentry->fcd_ino, fc_inode_match,
-					(void *)(long)fc_dentry->fcd_ino);
 		/*
 		 * If this was the last metadata update for this inode, clear
 		 * since we are going to handle it now.
 		 */
-		if (inode && EXT4_I(inode)->i_fc_mdata_update == fc_dentry)
-			EXT4_I(inode)->i_fc_mdata_update = NULL;
 		if (fc_dentry != last &&
 		    fc_dentry->fcd_op != EXT4_FC_TAG_CREAT_DENTRY) {
-			if (inode)
-				iput(inode);
-			spin_lock(&sbi->s_fc_lock);
 			kmem_cache_free(ext4_fc_dentry_cachep, fc_dentry);
+			spin_lock(&sbi->s_fc_lock);
 			continue;
 		}
+
+		inode = NULL;
+		spin_lock(&sbi->s_fc_lock);
+		list_for_each_safe(pos, n, &sbi->s_fc_q) {
+			iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
+			if (iter->vfs_inode.i_ino == fc_dentry->fcd_ino) {
+				inode = &iter->vfs_inode;
+				break;
+			}
+		}
+		spin_unlock(&sbi->s_fc_lock);
 		is_last = (fc_dentry == last);
 		kmem_cache_free(ext4_fc_dentry_cachep, fc_dentry);
-		if (IS_ERR_OR_NULL(inode))
+		if (IS_ERR_OR_NULL(inode)) {
 			/*
 			 * Inode got evicted from memory for some
 			 * reason. it's possible that someone deleted
 			 * the inode after we started fast commit.
 			 * We just abort fast commits in this case.
 			 */
-			return -ECANCELED;
+			return 0;
+		}
 
 		/*
 		 * It's either the last dentry update or it's inode
@@ -1037,10 +1075,9 @@ static int fc_commit_dentry_updates(journal_t *journal,
 		len = cur - start;
 		memmove(end - len, start, len);
 		ret = fc_write_hdr(inode, start, end - len, &cur);
-		if (ret < 0) {
-			iput(inode);
+		if (ret < 0)
 			return ret;
-		}
+
 		/*
 		 * Place directory entry updates right after the
 		 * header and the inode and write remaining
@@ -1050,10 +1087,8 @@ static int fc_commit_dentry_updates(journal_t *journal,
 		cur = cur + len;
 		if (inode->i_nlink) {
 			ret = fc_write_data(inode, cur, end, &cur);
-			if (ret < 0) {
-				iput(inode);
+			if (ret < 0)
 				return ret;
-			}
 		}
 		memset(cur, 0, end - cur);
 		hdr->fc_num_tlvs = cpu_to_le16(num_tlvs + ret);
@@ -1061,28 +1096,20 @@ static int fc_commit_dentry_updates(journal_t *journal,
 			ext4_chksum(sbi, 0, start, end - start));
 		submit_fc_bh(bh);
 		nblks++;
-		if (!inode->i_nlink) {
-			ext4_clear_inode_state(inode,
-				EXT4_STATE_FC_DATA_SUBMIT);
-			smp_mb(); /* Make sure data submit bit is set */
-#if (BITS_PER_LONG < 64)
-			wake_up_bit(&EXT4_I(inode)->i_state_flags,
-				EXT4_STATE_FC_DATA_SUBMIT);
-#else
-			wake_up_bit(&EXT4_I(inode)->i_flags,
-				EXT4_STATE_FC_DATA_SUBMIT);
-#endif
-		} else if (!ext4_test_inode_state(inode,
-				EXT4_STATE_FC_DATA_SUBMIT)) {
+		spin_lock(&sbi->s_fc_lock);
+		if (!ext4_test_inode_state(inode,
+				EXT4_STATE_FC_COMMITTING)) {
+			ext4_set_inode_state(inode,
+					     EXT4_STATE_FC_COMMITTING);
+			// BUG_ON(list_empty(&EXT4_I(inode)->i_fc_list));
+			spin_unlock(&sbi->s_fc_lock);
 			ret = jbd2_submit_inode_data(
 				journal, EXT4_I(inode)->jinode);
 			if (ret < 0)
 				return ret;
-			ext4_set_inode_state(inode,
-				EXT4_STATE_FC_DATA_SUBMIT);
+			spin_lock(&sbi->s_fc_lock);
 		}
-		ext4_set_inode_state(inode, EXT4_STATE_FC_MDATA_SUBMIT);
-		iput(inode);
+		spin_unlock(&sbi->s_fc_lock);
 		if (is_last) {
 			bh = NULL;
 			goto skip_unlock;
@@ -1109,23 +1136,38 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal)
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	struct ext4_inode_info *iter;
 	struct ext4_fc_dentry_update *fc_dentry;
+	struct list_head *pos, *n;
 
 	spin_lock(&sbi->s_fc_lock);
-	while (!list_empty(&sbi->s_fc_q)) {
-		iter = list_first_entry(&sbi->s_fc_q,
-				  struct ext4_inode_info, i_fc_list);
+	sbi->s_fc_q_locked = 0;
+	list_for_each_safe(pos, n, &sbi->s_fc_q) {
+		iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
 		iter->i_fc_mdata_update = NULL;
-
 		list_del_init(&iter->i_fc_list);
 		ext4_clear_inode_state(&iter->vfs_inode,
-				       EXT4_STATE_FC_DATA_SUBMIT);
-		ext4_clear_inode_state(&iter->vfs_inode,
-				       EXT4_STATE_FC_MDATA_SUBMIT);
+				       EXT4_STATE_FC_COMMITTING);
 		/* Make sure DATA_SUBMIT bit is set */
 		smp_mb();
-		wake_up_bit(&iter->i_flags, EXT4_STATE_FC_DATA_SUBMIT);
+#if (BITS_PER_LONG < 64)
+		wake_up_bit(&iter->i_state_flags, EXT4_STATE_FC_COMMITTING);
+#else
+		wake_up_bit(&iter->i_flags, EXT4_STATE_FC_COMMITTING);
+#endif
 	}
-	INIT_LIST_HEAD(&sbi->s_fc_q);
+	list_for_each_safe(pos, n, &sbi->s_fc_staging_q) {
+		iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
+		iter->i_fc_mdata_update = NULL;
+		list_del_init(&iter->i_fc_list);
+		ext4_clear_inode_state(&iter->vfs_inode,
+				       EXT4_STATE_FC_COMMITTING);
+		/* Make sure DATA_SUBMIT bit is set */
+		smp_mb();
+#if (BITS_PER_LONG < 64)
+		wake_up_bit(&iter->i_state_flags, EXT4_STATE_FC_COMMITTING);
+#else
+		wake_up_bit(&iter->i_flags, EXT4_STATE_FC_COMMITTING);
+#endif
+	}
 	while (!list_empty(&sbi->s_fc_dentry_q)) {
 		fc_dentry = list_first_entry(&sbi->s_fc_dentry_q,
 					     struct ext4_fc_dentry_update,
@@ -1138,6 +1180,13 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal)
 			kfree(fc_dentry->fcd_name.name);
 		kmem_cache_free(ext4_fc_dentry_cachep, fc_dentry);
 		spin_lock(&sbi->s_fc_lock);
+	}
+	while (!list_empty(&sbi->s_fc_staging_q)) {
+		iter = list_first_entry(&sbi->s_fc_staging_q,
+					struct ext4_inode_info,
+					i_fc_list);
+		list_del_init(&iter->i_fc_list);
+		list_add_tail(&iter->i_fc_list, &sbi->s_fc_q);
 	}
 	INIT_LIST_HEAD(&sbi->s_fc_dentry_q);
 	sbi->s_mount_state &= ~EXT4_FC_INELIGIBLE;
@@ -1155,42 +1204,47 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 	int ret = 0, nblks = 0;
 
 	ret = submit_all_inode_data(journal);
-	if (ret < 0)
+	if (ret < 0) {
 		return ret;
+	}
 
+	spin_lock(&sbi->s_fc_lock);
 	if (!list_empty(&EXT4_SB(sb)->s_fc_dentry_q)) {
+		spin_unlock(&sbi->s_fc_lock);
+
 		ret = fc_commit_dentry_updates(
 			journal, list_last_entry(
 				&EXT4_SB(sb)->s_fc_dentry_q,
 				struct ext4_fc_dentry_update,
 				fcd_list));
-		if (ret < 0)
+		if (ret < 0) {
 			return ret;
+        }
 		nblks = ret;
+		spin_lock(&sbi->s_fc_lock);
 	}
 
-	spin_lock(&sbi->s_fc_lock);
 	list_for_each(pos, &sbi->s_fc_q) {
 		iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
 		inode = &iter->vfs_inode;
-		if (ext4_test_inode_state(
-			    inode, EXT4_STATE_FC_MDATA_SUBMIT) ||
-		    !ext4_test_inode_state(
-			    inode, EXT4_STATE_FC_DATA_SUBMIT))
+		if (!ext4_test_inode_state(
+			    inode, EXT4_STATE_FC_COMMITTING))
 			continue;
 
 		spin_unlock(&sbi->s_fc_lock);
 		ret = fc_commit_data_inode(journal, inode);
-		if (ret < 0)
+		if (ret < 0) {
 			return ret;
+        }
 		nblks += ret;
 		spin_lock(&sbi->s_fc_lock);
 	}
 	spin_unlock(&sbi->s_fc_lock);
 
 	ret = wait_all_inode_data(journal);
-	if (ret < 0)
+	if (ret < 0) {
 		return ret;
+    }
 
 	return nblks;
 }
@@ -1209,14 +1263,18 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 
 	if (!test_opt2(sb, JOURNAL_FAST_COMMIT) ||
 	    (sbi->s_mount_state & EXT4_FC_INELIGIBLE)) {
+		spin_lock(&sbi->s_fc_lock);
 		sbi->s_fc_stats.fc_ineligible_commits++;
+		spin_unlock(&sbi->s_fc_lock);
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "disabled");
 		trace_ext4_journal_fc_stats(sb);
 		return jbd2_complete_transaction(journal, commit_tid);
 	}
 
 	if (ext4_is_inode_fc_ineligible(inode)) {
+		spin_lock(&sbi->s_fc_lock);
 		sbi->s_fc_stats.fc_ineligible_commits++;
+		spin_unlock(&sbi->s_fc_lock);
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "ineligible");
 		trace_ext4_journal_fc_stats(sb);
 		return jbd2_complete_transaction(journal, commit_tid);
@@ -1239,13 +1297,15 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 	}
 
 	if (ret) {
+		spin_lock(&sbi->s_fc_lock);
 		sbi->s_fc_stats.fc_ineligible_commits++;
+		spin_unlock(&sbi->s_fc_lock);
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "start");
 		trace_ext4_journal_fc_stats(sb);
 		return jbd2_complete_transaction(journal, commit_tid);
 	}
 
-	if (ext4_test_inode_state(inode, EXT4_STATE_FC_MDATA_SUBMIT)) {
+	if (ext4_test_inode_state(inode, EXT4_STATE_FC_COMMITTING)) {
 		jbd2_stop_async_fc(journal, commit_tid);
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "committed");
 		trace_ext4_journal_fc_stats(sb);
@@ -1259,50 +1319,14 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 		return 0;
 	}
 
-	if (!test_opt2(sb, JOURNAL_FC_SOFT_CONSISTENCY)) {
-		ret = ext4_fc_perform_hard_commit(journal);
-		nblks = ret;
-	} else if (ei->i_fc_mdata_update) {
-		ret = submit_all_inode_data(journal);
-		if (ret < 0)
-			goto out;
-		nblks = fc_commit_dentry_updates(journal,
-					      ei->i_fc_mdata_update);
-		if (nblks < 0) {
-			ret = nblks;
-			goto out;
-		}
-		ret = wait_all_inode_data(journal);
-	} else if (!list_empty(&EXT4_I(inode)->i_fc_list)) {
-		ext4_set_inode_state(inode, EXT4_STATE_FC_DATA_SUBMIT);
-		ret = jbd2_submit_inode_data(journal, EXT4_I(inode)->jinode);
-		if (ret < 0)
-			goto out;
-		nblks = fc_commit_data_inode(journal, inode);
-		if (nblks < 0) {
-			ret = nblks;
-			goto out;
-		}
-		ext4_set_inode_state(inode, EXT4_STATE_FC_MDATA_SUBMIT);
-		ret = jbd2_wait_inode_data(journal, EXT4_I(inode)->jinode);
-		spin_lock(&sbi->s_fc_lock);
-
-		list_del_init(&EXT4_I(inode)->i_fc_list);
-		ext4_clear_inode_state(inode, EXT4_STATE_FC_DATA_SUBMIT);
-		smp_mb(); /* Make sure data submit bit is set */
-#if (BITS_PER_LONG < 64)
-		wake_up_bit(&EXT4_I(inode)->i_state_flags,
-			    EXT4_STATE_FC_DATA_SUBMIT);
-#else
-		wake_up_bit(&EXT4_I(inode)->i_flags,
-			    EXT4_STATE_FC_DATA_SUBMIT);
-#endif
-		spin_unlock(&sbi->s_fc_lock);
-	}
+	ret = ext4_fc_perform_hard_commit(journal);
+	nblks = ret;
 
 out:
 	if (ret < 0) {
+		spin_lock(&sbi->s_fc_lock);
 		sbi->s_fc_stats.fc_ineligible_commits++;
+		spin_unlock(&sbi->s_fc_lock);
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "fail1");
 		jbd2_stop_async_fc(journal, commit_tid);
 		trace_ext4_journal_fc_stats(sb);
@@ -1312,8 +1336,10 @@ out:
 	jbd2_wait_on_fc_bufs(journal, nblks);
 	jbd2_stop_async_fc(journal, commit_tid);
 
+	spin_lock(&sbi->s_fc_lock);
 	EXT4_SB(sb)->s_fc_stats.fc_num_commits++;
 	EXT4_SB(sb)->s_fc_stats.fc_numblks += nblks;
+	spin_unlock(&sbi->s_fc_lock);
 	trace_ext4_journal_fc_commit_cb_stop(sb,
 					     nblks < 0 ? 0 : nblks,
 					     nblks >= 0 ? "success" : "fail2");

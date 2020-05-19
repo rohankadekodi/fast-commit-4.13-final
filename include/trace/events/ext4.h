@@ -83,7 +83,9 @@ struct ext4_fsmap;
 		{ EXT4_FC_REASON_MEM,	"NO_MEM"},			\
 		{ EXT4_FC_REASON_SWAP_BOOT,	"SWAP_BOOT"},		\
 		{ EXT4_FC_REASON_RESIZE,	"RESIZE"},		\
-		{ EXT4_FC_REASON_RENAME_DIR,	"FALLOC_RANGE_OP"})
+		{ EXT4_FC_REASON_RENAME_DIR,	"RENAME_DIR"},	\
+		{ EXT4_FC_REASON_DELETE,	"DELETE"})
+
 
 
 TRACE_EVENT(ext4_other_inode_update_time,
