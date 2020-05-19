@@ -5,6 +5,7 @@
 #include <linux/mm.h>
 #include <linux/radix-tree.h>
 #include <asm/pgtable.h>
+#include <linux/iomap.h>
 
 struct iomap_ops;
 struct dax_device;
@@ -135,6 +136,13 @@ int dax_invalidate_mapping_entry_sync(struct address_space *mapping,
 				      pgoff_t index);
 void dax_wake_mapping_entry_waiter(struct address_space *mapping,
 		pgoff_t index, void *entry, bool wake_all);
+loff_t dax_iomap_actor(struct inode *inode, loff_t pos, loff_t length, void *data,
+                struct iomap *iomap);
+typedef loff_t (*iomap_actor_t)(struct inode *inode, loff_t pos, loff_t len,
+                void *data, struct iomap *iomap);
+loff_t iomap_apply(struct inode *inode, loff_t pos, loff_t length,
+                unsigned flags, const struct iomap_ops *ops, void *data,
+                iomap_actor_t actor);
 
 #ifdef CONFIG_FS_DAX
 int __dax_zero_page_range(struct block_device *bdev,
@@ -172,5 +180,4 @@ static inline bool dax_mapping(struct address_space *mapping)
 struct writeback_control;
 int dax_writeback_mapping_range(struct address_space *mapping,
 		struct block_device *bdev, struct writeback_control *wbc);
-
 #endif

@@ -92,6 +92,7 @@ iomap_apply(struct inode *inode, loff_t pos, loff_t length, unsigned flags,
 
 	return written ? written : ret;
 }
+EXPORT_SYMBOL_GPL(iomap_apply);
 
 static void
 iomap_write_failed(struct inode *inode, loff_t pos, unsigned len)

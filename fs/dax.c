@@ -993,7 +993,7 @@ static sector_t dax_iomap_sector(struct iomap *iomap, loff_t pos)
 	return iomap->blkno + (((pos & PAGE_MASK) - iomap->offset) >> 9);
 }
 
-static loff_t
+loff_t
 dax_iomap_actor(struct inode *inode, loff_t pos, loff_t length, void *data,
 		struct iomap *iomap)
 {
@@ -1062,17 +1062,9 @@ dax_iomap_actor(struct inode *inode, loff_t pos, loff_t length, void *data,
 		if (iov_iter_rw(iter) == WRITE) {
 			map_len = dax_copy_from_iter(dax_dev, pgoff, kaddr,
 					map_len, iter);
-			// Rohan add write delay
-#ifdef CONFIG_LEDGER
-			perfmodel_add_delay(0, map_len);
-#endif
 		} else {
 			
 			map_len = copy_to_iter(kaddr, map_len, iter);
-			// Rohan add read delay
-#ifdef CONFIG_LEDGER
-			perfmodel_add_delay(1, map_len);
-#endif
 		}
 
 		if (map_len <= 0) {
@@ -1088,6 +1080,7 @@ dax_iomap_actor(struct inode *inode, loff_t pos, loff_t length, void *data,
 
 	return done ? done : ret;
 }
+EXPORT_SYMBOL_GPL(dax_iomap_actor);
 
 static loff_t
 dax_iomap_actor_temporal(struct inode *inode, loff_t pos, loff_t length, void *data,

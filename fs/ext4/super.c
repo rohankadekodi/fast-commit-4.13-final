@@ -5821,6 +5821,7 @@ static int __init ext4_init_fs(void)
 	err = ext4_init_mballoc();
 	if (err)
 		goto out2;
+
 	err = init_inodecache();
 	if (err)
 		goto out1;
