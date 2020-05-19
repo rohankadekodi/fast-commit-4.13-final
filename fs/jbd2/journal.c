@@ -782,7 +782,7 @@ int jbd2_start_async_fc_nowait(journal_t *journal, tid_t tid)
  */
 int jbd2_start_async_fc_wait(journal_t *journal, tid_t tid)
 {
-	int ret;
+	int ret = 0;
 
 	/*
 	 * Fast commits only allowed if at least one full commit has
@@ -795,23 +795,22 @@ int jbd2_start_async_fc_wait(journal_t *journal, tid_t tid)
 		return -EALREADY;
 
 	write_lock(&journal->j_state_lock);
-restart:
-	if (journal->j_flags & JBD2_FULL_COMMIT_ONGOING) {
-		ret = -EALREADY;
-	} else if (journal->j_flags & JBD2_FAST_COMMIT_ONGOING) {
+	if (journal->j_flags & JBD2_FULL_COMMIT_ONGOING ||
+	    (journal->j_flags & JBD2_FAST_COMMIT_ONGOING)) {
+	
 		DEFINE_WAIT(wait);
 
 		prepare_to_wait(&journal->j_wait_async_fc, &wait,
 				TASK_UNINTERRUPTIBLE);
 		write_unlock(&journal->j_state_lock);
 		schedule();
-		write_lock(&journal->j_state_lock);
 		finish_wait(&journal->j_wait_async_fc, &wait);
-		goto restart;
-	} else {
-		journal->j_flags |= JBD2_FAST_COMMIT_ONGOING;
-		ret = 0;
+		return -EALREADY;
+
+	} else if (ret == 0) {
+               journal->j_flags |= JBD2_FAST_COMMIT_ONGOING;
 	}
+	
 	write_unlock(&journal->j_state_lock);
 
 	return ret;
@@ -894,6 +893,8 @@ int jbd2_map_fc_buf(journal_t *journal, struct buffer_head **bh_out)
 	struct buffer_head *bh;
 	int fc_off;
 	journal_header_t *jhdr;
+
+	*bh_out = NULL;
 
 	write_lock(&journal->j_state_lock);
 

@@ -1004,6 +1004,13 @@ static int fc_commit_dentry_updates(journal_t *journal,
 	int num_tlvs = 0;
 	bool is_last;
 
+	spin_lock(&sbi->s_fc_lock);
+	if (list_empty(&sbi->s_fc_dentry_q)) {
+		spin_unlock(&sbi->s_fc_lock);
+		return 0;
+	}
+	spin_unlock(&sbi->s_fc_lock);
+
 	ret = jbd2_map_fc_buf(journal, &bh);
 	if (ret)
 		return -ECANCELED;
@@ -1060,7 +1067,8 @@ static int fc_commit_dentry_updates(journal_t *journal,
 			 * the inode after we started fast commit.
 			 * We just abort fast commits in this case.
 			 */
-			return 0;
+			spin_lock(&sbi->s_fc_lock);
+			continue;
 		}
 
 		/*
@@ -1126,7 +1134,8 @@ static int fc_commit_dentry_updates(journal_t *journal,
 
 	spin_unlock(&sbi->s_fc_lock);
 skip_unlock:
-	WARN_ON(bh != NULL);
+	if (bh)
+		brelse(bh);
 	return nblks;
 }
 
@@ -1219,7 +1228,7 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 				fcd_list));
 		if (ret < 0) {
 			return ret;
-        }
+		}
 		nblks = ret;
 		spin_lock(&sbi->s_fc_lock);
 	}
@@ -1286,10 +1295,8 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 	 * parallel fast commit is ongoing, it is going to take care
 	 * of us as well, so we don't wait.
 	 */
-	if (!test_opt2(sb, JOURNAL_FC_SOFT_CONSISTENCY))
-		ret = jbd2_start_async_fc_nowait(journal, commit_tid);
-	else
-		ret = jbd2_start_async_fc_wait(journal, commit_tid);
+	ret = jbd2_start_async_fc_wait(journal, commit_tid);
+
 	if (ret == -EALREADY) {
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "already");
 		trace_ext4_journal_fc_stats(sb);
