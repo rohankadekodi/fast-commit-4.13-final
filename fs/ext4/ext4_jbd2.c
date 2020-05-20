@@ -4,6 +4,7 @@
 
 #include "ext4_jbd2.h"
 #include "ext4_extents.h"
+#include <linux/dax.h>
 
 #include <trace/events/ext4.h>
 
@@ -1319,6 +1320,18 @@ out:
 
 void ext4_init_fast_commit(struct super_block *sb, journal_t *journal)
 {
+	ext4_fsblk_t pblock = 0;
+	sector_t sector = 0;
+	pgoff_t pgoff;
+	size_t size, map_len;
+	void *kaddr;
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+	int ret;
+	struct dax_device *dax_dev = NULL;
+	pfn_t __pfn_t;
+
+	size = EXT4_NUM_FC_BLKS * PAGE_SIZE;
+
 	/*
 	 * We set replay callback even if fast commit disabled because we may
 	 * could still have fast commit blocks that need to be replayed even if
@@ -1332,6 +1345,26 @@ void ext4_init_fast_commit(struct super_block *sb, journal_t *journal)
 		pr_warn("Error while enabling fast commits, turning off.");
 		ext4_clear_feature_fast_commit(sb);
 	}
+
+	jbd2_journal_bmap(journal, journal->j_first_fc, &pblock);
+
+	sector = pblock << 3;
+
+	dax_dev = fs_dax_get_by_host(sb->s_bdev->bd_disk->disk_name);
+	BUG_ON(dax_dev == NULL);
+
+	ret = bdev_dax_pgoff(sb->s_bdev, sector, size, &pgoff);
+	BUG_ON(ret != 0);
+
+	map_len = dax_direct_access(dax_dev, pgoff, PHYS_PFN(size),
+				    &kaddr, &__pfn_t);
+	BUG_ON(map_len < 0);
+
+	sbi->fc_journal_start = (unsigned long) kaddr;
+	atomic64_set(&(sbi->fc_journal_valid_tail), 0);
+
+	printk(KERN_INFO "%s: Journal start = 0x%lx. Tail pointer = %ld\n",
+	       __func__, sbi->fc_journal_start, sbi->fc_journal_valid_tail.counter);
 }
 
 int __init ext4_init_fc_dentry_cache(void)

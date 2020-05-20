@@ -1609,17 +1609,20 @@ struct ext4_sb_info {
 	/* Barrier between changing inodes' journal flags and writepages ops. */
 	struct percpu_rw_semaphore s_journal_flag_rwsem;
 
-    /* Ext4 fast commit stuff */
-    struct list_head s_fc_q;	/* Inodes staged for fast commit
-                                 * that have data changes in them.
-                                 */
+	/* Ext4 fast commit stuff */
+	struct list_head s_fc_q;	/* Inodes staged for fast commit
+					 * that have data changes in them.
+					 */
+	unsigned long fc_journal_start; /* This marks the start of FC Journal */
+	atomic64_t fc_journal_valid_tail; /* This is the volatile tail */
+
 	/* Ext4 fast commit stuff */
 	int s_fc_q_locked;
 	struct list_head s_fc_staging_q;/* Inodes staged for fast commit
 					 * that have data changes in them.
 					 */
 	struct list_head s_fc_dentry_q;
-    spinlock_t s_fc_lock;
+	spinlock_t s_fc_lock;
 	wait_queue_head_t	s_fc_wait_q;
 	struct ext4_fc_stats s_fc_stats;
 };
