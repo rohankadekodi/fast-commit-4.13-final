@@ -701,22 +701,32 @@ u8 *__ext4_alloc_fc_bytes_jbd2(struct super_block *sb, int len)
 {
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	struct buffer_head *bh;
-	int ret;
+	int bsize = sbi->s_journal->j_blocksize;
+	int ret, off = sbi->s_fc_bytes % bsize;
 
-	if ((sbi->s_fc_bytes % sbi->s_journal->j_blocksize) == 0) {
-		submit_fc_bh(sbi->s_fc_bh);
-		sbi->s_fc_bh = NULL;
-		ret = jbd2_map_fc_buf(EXT4_SB(sb)->s_journal, &bh);
-		if (ret)
-			return NULL;
-		sbi->s_fc_bh = bh;
+	if (bsize - off - 1 > len) {
+		if (!sbi->s_fc_bh) {
+			ret = jbd2_map_fc_buf(EXT4_SB(sb)->s_journal, &bh);
+			if (ret)
+				return NULL;
+			sbi->s_fc_bh = bh;
+		}
+		sbi->s_fc_bytes += len;
+		return sbi->s_fc_bh->b_data + off;
 	}
+	BUG_ON(len > bsize - off - 1 && sbi->s_fc_bh == NULL);
 
+	submit_fc_bh(sbi->s_fc_bh);
+	sbi->s_fc_bh = NULL;
 	ret = jbd2_map_fc_buf(EXT4_SB(sb)->s_journal, &bh);
 	if (ret)
 		return NULL;
-
-	return (u8 *)bh->b_data;
+	sbi->s_fc_bh = bh;
+	sbi->s_fc_bytes = (sbi->s_fc_bytes / bsize + 1) * bsize;
+	off = sbi->s_fc_bytes % bsize;
+	BUG_ON(off != 0);
+	sbi->s_fc_bytes += len;
+	return sbi->s_fc_bh->b_data;
 }
 
 u8 *ext4_alloc_fc_bytes(struct super_block *sb, int len)
@@ -886,13 +896,6 @@ void ext4_submit_fc_bytes(struct super_block *sb, void *priv)
 	struct buffer_head *bh = (struct buffer_head *) priv;
 
 	submit_fc_bh(bh);
-}
-
-void ext4_wait_on_fc_bytes(struct super_block *sb, void *priv)
-{
-	long nblks = (long) priv;
-
-	jbd2_wait_on_fc_bufs(EXT4_SB(sb)->s_journal, nblks);
 }
 
 static int fc_commit_data_inode(journal_t *journal, struct inode *inode)
@@ -1080,6 +1083,9 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal)
 	struct ext4_fc_dentry_update *fc_dentry;
 	struct list_head *pos, *n;
 
+	if (sbi->s_fc_bh)
+		brelse(sbi->s_fc_bh);
+
 	spin_lock(&sbi->s_fc_lock);
 	sbi->s_fc_q_locked = 0;
 
@@ -1186,6 +1192,11 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 	}
 	spin_unlock(&sbi->s_fc_lock);
 
+	if (sbi->s_fc_bh) {
+		submit_fc_bh(sbi->s_fc_bh);
+		sbi->s_fc_bh = NULL;
+	}
+
 	ret = wait_all_inode_data(journal);
 	if (ret < 0) {
 		return ret;
@@ -1267,7 +1278,7 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 		sbi->s_mount_state &= ~EXT4_FC_REPLAY;
 		return jbd2_complete_transaction(journal, commit_tid);
 	}
-	ext4_wait_on_fc_bytes(sb, (void *)(long)nblks);
+	jbd2_wait_on_fc_bufs(journal, sbi->s_fc_bytes / journal->j_blocksize);
 	jbd2_stop_async_fc(journal, commit_tid);
 
 	spin_lock(&sbi->s_fc_lock);
