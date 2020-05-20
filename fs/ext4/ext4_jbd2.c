@@ -657,11 +657,11 @@ static void ext4_end_buffer_io_sync(struct buffer_head *bh, int uptodate)
 {
 	BUFFER_TRACE(bh, "");
 	if (uptodate) {
-		ext4_debug("%s: Block %lld up-to-date",
+		ext4_debug("%s: Block %lu up-to-date",
 			   __func__, bh->b_blocknr);
 		set_buffer_uptodate(bh);
 	} else {
-		ext4_debug("%s: Block %lld not up-to-date",
+		ext4_debug("%s: Block %lu not up-to-date",
 			   __func__, bh->b_blocknr);
 		clear_buffer_uptodate(bh);
 	}
@@ -825,6 +825,24 @@ static int fc_write_data(struct inode *inode, u8 *start, u8 *end,
 	*last = cur;
 
 	return num_tlvs;
+}
+
+u8 *ext4_alloc_fc_bytes(struct super_block *sb, int len, void *priv)
+{
+	unsigned long pmem_kaddr;
+	unsigned long pmem_end_addr;
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
+	loff_t offset = 0;
+
+	pmem_end_addr = sbi->fc_journal_start + EXT4_NUM_FC_BLKS * sb->s_blocksize;
+	offset = atomic64_fetch_add(len, &(sbi->fc_journal_valid_tail));
+	pmem_kaddr = sbi->fc_journal_start + offset;
+
+	if (pmem_kaddr + len >= pmem_end_addr) {
+		return (u8 *) NULL;
+	}
+
+	return (u8 *) pmem_kaddr;
 }
 
 static int fc_commit_data_inode(journal_t *journal, struct inode *inode)
@@ -1232,7 +1250,6 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 			       struct inode *inode)
 {
-	struct ext4_inode_info *ei = EXT4_I(inode);
 	struct super_block *sb = inode->i_sb;
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	int nblks = 0, ret;
@@ -1292,7 +1309,7 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 
 	ret = ext4_fc_perform_hard_commit(journal);
 	nblks = ret;
-out:
+
 	if (ret < 0) {
 		spin_lock(&sbi->s_fc_lock);
 		sbi->s_fc_stats.fc_ineligible_commits++;
