@@ -1221,10 +1221,7 @@ struct ext4_inode_info {
 
 #define EXT4_MOUNT2_JOURNAL_FAST_COMMIT	0x00000010 /* Journal fast commit */
 
-#define EXT4_MOUNT2_JOURNAL_FC_SOFT_CONSISTENCY	0x00000020 /* Soft consistency
-							    * mode for fast
-							    * commits
-							    */
+#define EXT4_MOUNT2_JOURNAL_FC_PMEM	0x00000020 /* PMEM mode */
 
 #define clear_opt(sb, opt)		EXT4_SB(sb)->s_mount_opt &= \
 						~EXT4_MOUNT_##opt
@@ -1622,6 +1619,8 @@ struct ext4_sb_info {
 					 * that have data changes in them.
 					 */
 	struct list_head s_fc_dentry_q;
+	int s_fc_bytes;
+	struct buffer_head *s_fc_bh;
 	spinlock_t s_fc_lock;
 	wait_queue_head_t	s_fc_wait_q;
 	struct ext4_fc_stats s_fc_stats;
