@@ -1031,11 +1031,6 @@ struct ext4_inode_info {
 	rwlock_t i_fc_lock;
 
 	/*
-	 * Last mdata / dirent update that happened on this inode.
-	 */
-	struct ext4_fc_dentry_update *i_fc_mdata_update;
-
-	/*
 	 * i_disksize keeps track of what the inode size is ON DISK, not
 	 * in memory.  During truncate, i_size is set to the new size by
 	 * the VFS prior to calling ext4_truncate(), but the filesystem won't
