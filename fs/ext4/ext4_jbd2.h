@@ -482,32 +482,6 @@ struct ext4_fc_commit_hdr {
 	__le32 fc_csum;
 };
 
-/* Fast commit on disk tag length structure */
-struct ext4_fc_tl {
-	__le16 fc_tag;
-	__le16 fc_len;
-};
-
-/* On disk fast commit tlv value structure for dirent tags:
- *  - EXT4_FC_TAG_CREATE_DENTRY
- *  - EXT4_FC_TAG_ADD_DENTRY
- *  - EXT4_FC_TAG_DEL_DENTRY
- */
-struct ext4_fc_dentry_info {
-	__le32 fc_parent_ino;
-	__le32 fc_ino;
-	u8 fc_dname[0];
-};
-
-/*
- * On disk fast commit tlv value structure for tag
- * EXT4_FC_TAG_HOLE.
- */
-struct ext4_fc_lrange {
-	__le32 fc_lblk;
-	__le32 fc_len;
-};
-
 void ext4_init_fast_commit(struct super_block *sb, journal_t *journal);
 void ext4_init_inode_fc_info(struct inode *inode);
 void ext4_fc_track_range(struct inode *inode, ext4_lblk_t start,

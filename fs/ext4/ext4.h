@@ -956,6 +956,42 @@ enum {
 #define EXT4_FC_TAG_CREAT_DENTRY	0x3
 #define EXT4_FC_TAG_ADD_DENTRY		0x4
 #define EXT4_FC_TAG_DEL_DENTRY		0x5
+#define EXT4_FC_TAG_INODE		0x6
+#define EXT4_FC_TAG_PAD			0x7
+#define EXT4_FC_TAG_TAIL		0x8
+
+
+/* Fast commit on disk tag length structure */
+struct ext4_fc_tl {
+	__le16 fc_tag;
+	__le16 fc_len;
+};
+
+/* On disk fast commit tlv value structure for dirent tags:
+ *  - EXT4_FC_TAG_CREATE_DENTRY
+ *  - EXT4_FC_TAG_ADD_DENTRY
+ *  - EXT4_FC_TAG_DEL_DENTRY
+ */
+struct ext4_fc_dentry_info {
+	__le32 fc_parent_ino;
+	__le32 fc_ino;
+	u8 fc_dname[0];
+};
+
+/*
+ * On disk fast commit tlv value structure for tag
+ * EXT4_FC_TAG_HOLE.
+ */
+struct ext4_fc_lrange {
+	__le32 fc_lblk;
+	__le32 fc_len;
+};
+
+struct ext4_fc_tail {
+	__le32 fc_crc;
+	__le32 fc_tid;
+};
+
 
 /*
  * In memory list of dentry updates that are performed on the file

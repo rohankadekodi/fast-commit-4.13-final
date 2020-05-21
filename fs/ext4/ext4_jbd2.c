@@ -679,7 +679,7 @@ void submit_fc_bh(struct buffer_head *bh)
 }
 
 
-u8 *__ext4_alloc_fc_bytes_pmem(struct super_block *sb, int len)
+u8 *__ext4_alloc_fc_bytes_pmem(struct super_block *sb, int len, u32 *crc)
 {
 	unsigned long pmem_kaddr;
 	unsigned long pmem_end_addr;
@@ -697,14 +697,31 @@ u8 *__ext4_alloc_fc_bytes_pmem(struct super_block *sb, int len)
 	return (u8 *) pmem_kaddr;
 }
 
-u8 *__ext4_alloc_fc_bytes_jbd2(struct super_block *sb, int len)
+void *ext4_fc_memzero(struct super_block *sb, void *dst, int len, u32 *crc)
 {
+	void *ret;
+	/* if (test_opt2(sb, JOURNAL_FC_PMEM)) */
+	/* 	return __copy_from_user_inatomic_nocache(dst, src, len); */
+	ret = memset(dst, 0, len);
+	if (crc)
+		*crc = ext4_chksum(EXT4_SB(sb), *crc, dst, len);
+	return ret;
+}
+
+u8 *__ext4_alloc_fc_bytes_jbd2(struct super_block *sb, int len, u32 *crc)
+{
+	struct ext4_fc_tl *tl;
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	struct buffer_head *bh;
 	int bsize = sbi->s_journal->j_blocksize;
 	int ret, off = sbi->s_fc_bytes % bsize;
+	int pad_len;
 
-	if (bsize - off - 1 > len) {
+	if (bsize - off - 1 > len + sizeof(struct ext4_fc_tl)) {
+		/*
+		 * Only allocate from current buffer if we have enough space for
+		 * this request AND we have space to add a zero byte padding
+		 */
 		if (!sbi->s_fc_bh) {
 			ret = jbd2_map_fc_buf(EXT4_SB(sb)->s_journal, &bh);
 			if (ret)
@@ -715,6 +732,14 @@ u8 *__ext4_alloc_fc_bytes_jbd2(struct super_block *sb, int len)
 		return sbi->s_fc_bh->b_data + off;
 	}
 	BUG_ON(len > bsize - off - 1 && sbi->s_fc_bh == NULL);
+
+	tl = (struct ext4_fc_tl *)(sbi->s_fc_bh->b_data + off);
+	tl->fc_tag = cpu_to_le16(EXT4_FC_TAG_PAD);
+	pad_len = bsize - off - 1 - sizeof(struct ext4_fc_tl);
+	tl->fc_len = cpu_to_le16(pad_len);
+	*crc = ext4_chksum(sbi, *crc, &tl, sizeof(*tl));
+	if (pad_len > 0)
+		ext4_fc_memzero(sb, tl + 1, pad_len, crc);
 
 	submit_fc_bh(sbi->s_fc_bh);
 	sbi->s_fc_bh = NULL;
@@ -729,20 +754,22 @@ u8 *__ext4_alloc_fc_bytes_jbd2(struct super_block *sb, int len)
 	return sbi->s_fc_bh->b_data;
 }
 
-u8 *ext4_alloc_fc_bytes(struct super_block *sb, int len)
+u8 *ext4_alloc_fc_bytes(struct super_block *sb, int len, u32 *crc)
 {
 	if (test_opt2(sb, JOURNAL_FC_PMEM))
-		return __ext4_alloc_fc_bytes_pmem(sb, len);
-	return __ext4_alloc_fc_bytes_jbd2(sb, len);
+		return __ext4_alloc_fc_bytes_pmem(sb, len, crc);
+	return __ext4_alloc_fc_bytes_jbd2(sb, len, crc);
 }
 
 void ext4_fc_memcpy(struct super_block *sb, void *dst, const void *src,
-		   int len)
+		    int len, u32 *crc)
 {
     int ret = 0;
-	if (test_opt2(sb, JOURNAL_FC_PMEM)) {
-		ret = __copy_from_user_inatomic_nocache(dst, src, len);
-        BUG_ON(ret != 0);
+    if (crc)
+	    *crc = ext4_chksum(EXT4_SB(sb), *crc, src, len);
+    if (test_opt2(sb, JOURNAL_FC_PMEM)) {
+	    ret = __copy_from_user_inatomic_nocache(dst, src, len);
+	    BUG_ON(ret != 0);
     } else {
 	    memcpy(dst, src, len);
     }
@@ -751,19 +778,62 @@ void ext4_fc_memcpy(struct super_block *sb, void *dst, const void *src,
 }
 
 
+static int fc_write_tail(struct super_block *sb, u32 crc)
+{
+	struct ext4_fc_tl tl;
+	struct ext4_fc_tail tail;
+	u8 *dst;
+
+	dst = ext4_alloc_fc_bytes(sb, sizeof(tl) + sizeof(tail), &crc);
+	if (!dst)
+		return -ENOSPC;
+
+	tl.fc_tag = cpu_to_le16(EXT4_FC_TAG_TAIL);
+	tl.fc_len = cpu_to_le16(sizeof(struct ext4_fc_tail));
+	tail.fc_tid = cpu_to_le32(EXT4_SB(sb)->s_journal->
+				  j_running_transaction->t_tid);
+	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), &crc);
+	ext4_fc_memcpy(sb, dst + sizeof(tl), &tail.fc_tid, sizeof(tail.fc_tid), &crc);
+	tail.fc_crc = cpu_to_le32(crc);
+	ext4_fc_memcpy(sb, dst + sizeof(tl) + sizeof(tail.fc_tid), &tail.fc_crc, sizeof(tail.fc_crc), NULL);
+	return 0;
+}
+
+/*
+ * Adds tag, length and value at memory pointed to by dst. Returns
+ * true if tlv was added. Returns false if there's not enough space.
+ * If successful also updates *dst to point to the end of this tlv.
+ */
+static bool fc_try_add_tlv(struct super_block *sb, u16 tag, u16 len, u8 *val,
+			   u32 *crc)
+{
+	struct ext4_fc_tl tl;
+	u8 *dst;
+
+	dst = ext4_alloc_fc_bytes(sb, sizeof(tl) + len, crc);
+	if (!dst)
+		return false;
+
+	tl.fc_tag = cpu_to_le16(tag);
+	tl.fc_len = cpu_to_le16(len);
+	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), crc);
+	ext4_fc_memcpy(sb, dst + sizeof(tl), val, len, crc);
+
+	return true;
+}
+
 /*
  * Writes fast commit header and inode structure at memory
  * pointed to by start. Returns 0 on success, error on failure.
  * If successful, *last is upadated to point to the end of
  * inode that was copied.
  */
-static int fc_write_hdr(struct inode *inode)
+static int fc_write_inode(struct inode *inode, u32 *crc)
 {
 	struct ext4_inode_info *ei = EXT4_I(inode);
 	int inode_len = EXT4_GOOD_OLD_INODE_SIZE;
 	int ret;
 	struct ext4_iloc iloc;
-	u8 *cur;
 
 	if (ext4_is_inode_fc_ineligible(inode))
 		return -ECANCELED;
@@ -775,46 +845,22 @@ static int fc_write_hdr(struct inode *inode)
 	if (EXT4_INODE_SIZE(inode->i_sb) > EXT4_GOOD_OLD_INODE_SIZE)
 		inode_len += ei->i_extra_isize;
 
-	cur = ext4_alloc_fc_bytes(inode->i_sb, inode_len);
-	if (!cur)
-		return -ENOSPC;
-
-	ext4_fc_memcpy(inode->i_sb, cur, ext4_raw_inode(&iloc), inode_len);
+	if (!fc_try_add_tlv(inode->i_sb, EXT4_FC_TAG_INODE, inode_len,
+			    (u8 *)ext4_raw_inode(&iloc), crc))
+		return -ECANCELED;
 
 	return 0;
-}
-
-/*
- * Adds tag, length and value at memory pointed to by dst. Returns
- * true if tlv was added. Returns false if there's not enough space.
- * If successful also updates *dst to point to the end of this tlv.
- */
-static bool fc_try_add_tlv(struct super_block *sb, u16 tag, u16 len, u8 *val)
-{
-	struct ext4_fc_tl tl;
-	u8 *dst;
-
-	dst = ext4_alloc_fc_bytes(sb, sizeof(tl) + len);
-	if (!dst)
-		return false;
-
-	tl.fc_tag = cpu_to_le16(tag);
-	tl.fc_len = cpu_to_le16(len);
-
-	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl));
-	ext4_fc_memcpy(sb, dst + sizeof(tl), val, len);
-
-	return true;
 }
 
 /* Same as above, but tries to add dentry tlv. */
 static bool fc_try_add_dentry_info_tlv(struct super_block *sb, u16 tag,
 				       int parent_ino, int ino, int dlen,
-				       const unsigned char *dname)
+				       const unsigned char *dname,
+				       u32 *crc)
 {
 	struct ext4_fc_dentry_info fcd;
 	struct ext4_fc_tl tl;
-	u8 *dst = ext4_alloc_fc_bytes(sb, sizeof(tl) + sizeof(fcd) + dlen);
+	u8 *dst = ext4_alloc_fc_bytes(sb, sizeof(tl) + sizeof(fcd) + dlen, crc);
 
 	if (!dst)
 		return false;
@@ -823,11 +869,11 @@ static bool fc_try_add_dentry_info_tlv(struct super_block *sb, u16 tag,
 	fcd.fc_ino = cpu_to_le32(ino);
 	tl.fc_tag = cpu_to_le16(tag);
 	tl.fc_len = cpu_to_le16(sizeof(fcd) + dlen);
-	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl));
+	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), crc);
 	dst += sizeof(tl);
-	ext4_fc_memcpy(sb, dst, &fcd, sizeof(fcd));
+	ext4_fc_memcpy(sb, dst, &fcd, sizeof(fcd), crc);
 	dst += sizeof(fcd);
-	ext4_fc_memcpy(sb, dst, dname, dlen);
+	ext4_fc_memcpy(sb, dst, dname, dlen, crc);
 	dst += dlen;
 
 	return true;
@@ -838,7 +884,7 @@ static bool fc_try_add_dentry_info_tlv(struct super_block *sb, u16 tag,
  * at memory pointed to by start. Returns number of TLVs that were
  * added if successfully. Returns errors otherwise.
  */
-static int fc_write_data(struct inode *inode)
+static int fc_write_data(struct inode *inode, u32 *crc)
 {
 	ext4_lblk_t old_blk_size, cur_lblk_off, new_blk_size;
 	struct ext4_inode_info *ei = EXT4_I(inode);
@@ -873,7 +919,7 @@ static int fc_write_data(struct inode *inode)
 			lrange.fc_lblk = cpu_to_le32(map.m_lblk);
 			lrange.fc_len = cpu_to_le32(map.m_len);
 			if (!fc_try_add_tlv(inode->i_sb, EXT4_FC_TAG_DEL_RANGE,
-				sizeof(lrange), (u8 *)&lrange))
+					    sizeof(lrange), (u8 *)&lrange, crc))
 				return -ENOSPC;
 
 		} else {
@@ -882,7 +928,7 @@ static int fc_write_data(struct inode *inode)
 			ext4_ext_store_pblock(&extent, map.m_pblk);
 			ext4_ext_mark_initialized(&extent);
 			if (!fc_try_add_tlv(inode->i_sb, EXT4_FC_TAG_ADD_RANGE,
-				sizeof(struct ext4_extent), (u8 *)&extent))
+					    sizeof(struct ext4_extent), (u8 *)&extent, crc))
 				return -ENOSPC;
 		}
 		num_tlvs++;
@@ -898,15 +944,15 @@ void ext4_submit_fc_bytes(struct super_block *sb, void *priv)
 	submit_fc_bh(bh);
 }
 
-static int fc_commit_data_inode(journal_t *journal, struct inode *inode)
+static int fc_commit_data_inode(journal_t *journal, struct inode *inode, u32 *crc)
 {
 	int ret;
 
-	ret = fc_write_hdr(inode);
+	ret = fc_write_inode(inode, crc);
 	if (ret < 0)
 		return ret;
 
-	ret = fc_write_data(inode);
+	ret = fc_write_data(inode, crc);
 	if (ret < 0)
 		return ret;
 
@@ -970,7 +1016,8 @@ static int wait_all_inode_data(journal_t *journal)
  * including "last".
  */
 static int fc_commit_dentry_updates(journal_t *journal,
-				    struct ext4_fc_dentry_update *last)
+				    struct ext4_fc_dentry_update *last,
+				    u32 *crc)
 {
 	struct super_block *sb = (struct super_block *)(journal->j_private);
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
@@ -999,7 +1046,7 @@ static int fc_commit_dentry_updates(journal_t *journal,
 						sb, fc_dentry->fcd_op,
 						fc_dentry->fcd_parent, fc_dentry->fcd_ino,
 						fc_dentry->fcd_name.len,
-						fc_dentry->fcd_name.name)) {
+						fc_dentry->fcd_name.name, crc)) {
 			kmem_cache_free(ext4_fc_dentry_cachep, fc_dentry);
 			return -ENOSPC;
 		}
@@ -1041,12 +1088,12 @@ static int fc_commit_dentry_updates(journal_t *journal,
 			continue;
 		}
 
-		ret = fc_write_hdr(inode);
+		ret = fc_write_inode(inode, crc);
 		if (ret < 0)
 			return ret;
 
 		if (inode->i_nlink) {
-			ret = fc_write_data(inode);
+			ret = fc_write_data(inode, crc);
 			if (ret < 0)
 				return ret;
 		}
@@ -1153,6 +1200,7 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 	struct list_head *pos;
 	struct inode *inode;
 	int ret = 0, nblks = 0;
+	u32 crc = 0;
 
 	ret = submit_all_inode_data(journal);
 	if (ret < 0) {
@@ -1167,7 +1215,7 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 			journal, list_last_entry(
 				&EXT4_SB(sb)->s_fc_dentry_q,
 				struct ext4_fc_dentry_update,
-				fcd_list));
+				fcd_list), &crc);
 		if (ret < 0) {
 			return ret;
 		}
@@ -1183,14 +1231,18 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 			continue;
 
 		spin_unlock(&sbi->s_fc_lock);
-		ret = fc_commit_data_inode(journal, inode);
-		if (ret < 0) {
+		ret = fc_commit_data_inode(journal, inode, &crc);
+		if (ret < 0)
 			return ret;
-        }
+
 		nblks += ret;
 		spin_lock(&sbi->s_fc_lock);
 	}
 	spin_unlock(&sbi->s_fc_lock);
+
+	ret = fc_write_tail(sb, crc);
+	if (ret)
+		return ret;
 
 	if (sbi->s_fc_bh) {
 		submit_fc_bh(sbi->s_fc_bh);
