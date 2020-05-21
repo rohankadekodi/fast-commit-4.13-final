@@ -1051,6 +1051,7 @@ struct ext4_inode_info {
 	 * Use wrappers provided in ext4_jbd2.c.
 	 */
 	tid_t i_fc_tid;
+	atomic_t i_fc_subtid;
 
 	/*
 	 * Start of logical block range that needs to be committed in
@@ -1643,6 +1644,7 @@ struct ext4_sb_info {
 	struct percpu_rw_semaphore s_journal_flag_rwsem;
 
 	/* Ext4 fast commit stuff */
+	atomic_t s_fc_subtid;
 	struct list_head s_fc_q;	/* Inodes staged for fast commit
 					 * that have data changes in them.
 					 */
@@ -1700,7 +1702,8 @@ enum {
 	EXT4_STATE_MAY_INLINE_DATA,	/* may have in-inode data */
 	EXT4_STATE_EXT_PRECACHED,	/* extents have been precached */
 	EXT4_STATE_FC_ELIGIBLE,		/* File is Fast commit eligible */
-	EXT4_STATE_FC_COMMITTING
+	EXT4_STATE_FC_COMMITTING,
+	EXT4_STATE_FC_DIRTY
 };
 
 #define EXT4_INODE_BIT_FNS(name, field, offset)				\

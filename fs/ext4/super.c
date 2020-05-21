@@ -4012,7 +4012,8 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	INIT_LIST_HEAD(&sbi->s_orphan); /* unlinked but open files */
 	mutex_init(&sbi->s_orphan_lock);
 
-	sbi->s_fc_q_locked = 1;
+	sbi->s_fc_q_locked = 0;
+	atomic_set(&sbi->s_fc_subtid, 0);
 	INIT_LIST_HEAD(&sbi->s_fc_q);
 	INIT_LIST_HEAD(&sbi->s_fc_staging_q);
 	INIT_LIST_HEAD(&sbi->s_fc_dentry_q);

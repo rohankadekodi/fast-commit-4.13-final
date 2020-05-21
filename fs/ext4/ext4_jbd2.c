@@ -347,6 +347,7 @@ void ext4_reset_inode_fc_info(struct inode *inode)
 	struct ext4_inode_info *ei = EXT4_I(inode);
 
 	ei->i_fc_tid = 0;
+	atomic_set(&ei->i_fc_subtid, 0);
 	ei->i_fc_lblk_start = 0;
 	ei->i_fc_lblk_end = 0;
 	ext4_clear_inode_state(inode, EXT4_STATE_FC_ELIGIBLE);
@@ -358,6 +359,7 @@ void ext4_init_inode_fc_info(struct inode *inode)
 
 	ext4_reset_inode_fc_info(inode);
 	ext4_clear_inode_state(inode, EXT4_STATE_FC_COMMITTING);
+	ext4_clear_inode_state(inode, EXT4_STATE_FC_DIRTY);
 	INIT_LIST_HEAD(&ei->i_fc_list);
 }
 
@@ -371,8 +373,10 @@ static void ext4_fc_enqueue_inode(struct inode *inode)
 
 	spin_lock(&sbi->s_fc_lock);
 	if (list_empty(&EXT4_I(inode)->i_fc_list)) {
+		ext4_set_inode_state(inode, EXT4_STATE_FC_DIRTY);
 		if (sbi->s_fc_q_locked)
-			list_add_tail(&EXT4_I(inode)->i_fc_list, &sbi->s_fc_staging_q);
+			list_add_tail(&EXT4_I(inode)->i_fc_list,
+				      &sbi->s_fc_staging_q);
 		else
 			list_add_tail(&EXT4_I(inode)->i_fc_list, &sbi->s_fc_q);
 	}
@@ -490,6 +494,8 @@ static int __ext4_fc_track_template(
 	} else {
 		ext4_reset_inode_fc_info(inode);
 		ei->i_fc_tid = running_txn_tid;
+		atomic_set(&ei->i_fc_subtid,
+			   atomic_read(&EXT4_SB(inode->i_sb)->s_fc_subtid));
 		ext4_set_inode_state(inode, EXT4_STATE_FC_ELIGIBLE);
 	}
 	ret = __fc_track_fn(inode, args, update);
@@ -937,13 +943,6 @@ static int fc_write_data(struct inode *inode, u32 *crc)
 	return num_tlvs;
 }
 
-void ext4_submit_fc_bytes(struct super_block *sb, void *priv)
-{
-	struct buffer_head *bh = (struct buffer_head *) priv;
-
-	submit_fc_bh(bh);
-}
-
 static int fc_commit_data_inode(journal_t *journal, struct inode *inode, u32 *crc)
 {
 	int ret;
@@ -1130,8 +1129,10 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal)
 	struct ext4_fc_dentry_update *fc_dentry;
 	struct list_head *pos, *n;
 
-	if (sbi->s_fc_bh)
+	if (sbi->s_fc_bh) {
 		brelse(sbi->s_fc_bh);
+		sbi->s_fc_bh = NULL;
+	}
 
 	spin_lock(&sbi->s_fc_lock);
 	sbi->s_fc_q_locked = 0;
@@ -1144,6 +1145,8 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal)
 		list_del_init(&iter->i_fc_list);
 		ext4_clear_inode_state(&iter->vfs_inode,
 				       EXT4_STATE_FC_COMMITTING);
+		ext4_clear_inode_state(&iter->vfs_inode,
+				       EXT4_STATE_FC_DIRTY);
 		/* Make sure DATA_SUBMIT bit is set */
 		smp_mb();
 #if (BITS_PER_LONG < 64)
@@ -1208,6 +1211,7 @@ int ext4_fc_perform_hard_commit(journal_t *journal)
 	}
 
 	spin_lock(&sbi->s_fc_lock);
+	atomic_inc(&EXT4_SB(sb)->s_fc_subtid);
 	if (!list_empty(&EXT4_SB(sb)->s_fc_dentry_q)) {
 		spin_unlock(&sbi->s_fc_lock);
 
@@ -1264,9 +1268,14 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	int nblks = 0, ret;
 	int start_jiffies;
+	int subtid = atomic_read(&EXT4_I(inode)->i_fc_subtid);
+	int num_iters = 0;
 
 	trace_ext4_journal_fc_commit_cb_start(sb);
 	start_jiffies = jiffies;
+
+	if (subtid < atomic_read(&sbi->s_fc_subtid))
+		return 0;
 
 	if (!test_opt2(sb, JOURNAL_FAST_COMMIT) ||
 	    (sbi->s_mount_state & EXT4_FC_INELIGIBLE)) {
@@ -1287,15 +1296,15 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 		return jbd2_complete_transaction(journal, commit_tid);
 	}
 
-	/*
-	 * In case of soft consistency mode, we wait for any parallel
-	 * fast commits to complete. In case of hard consistency, if a
-	 * parallel fast commit is ongoing, it is going to take care
-	 * of us as well, so we don't wait.
-	 */
+restart_fc:
 	ret = jbd2_start_async_fc_wait(journal, commit_tid);
 
 	if (ret == -EALREADY) {
+		if (atomic_read(&sbi->s_fc_subtid) <= subtid) {
+			num_iters++;
+			if (num_iters > 1)
+				goto restart_fc;
+		}
 		trace_ext4_journal_fc_commit_cb_stop(sb, 0, "already");
 		trace_ext4_journal_fc_stats(sb);
 		return 0;
