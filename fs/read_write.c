@@ -608,7 +608,7 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 	ssize_t ret = -EBADF;
 	rohan_timing_t read_time;
 
-	ROHAN_START_TIMING(read_iter_t, read_time);
+	ROHAN_START_TIMING(rohan_read_iter_t, read_time);
 
 	if (f.file) {
 		loff_t pos = file_pos_read(f.file);
@@ -618,7 +618,7 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 		fdput_pos(f);
 	}
 
-	ROHAN_END_TIMING(read_iter_t, read_time);
+	ROHAN_END_TIMING(rohan_read_iter_t, read_time);
 	return ret;
 }
 
@@ -629,7 +629,7 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 	ssize_t ret = -EBADF;
 	rohan_timing_t write_time;
 
-	ROHAN_START_TIMING(write_iter_t, write_time);
+	ROHAN_START_TIMING(rohan_write_iter_t, write_time);
 
 	if (f.file) {
 		loff_t pos = file_pos_read(f.file);
@@ -639,7 +639,7 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 		fdput_pos(f);
 	}
 
-	ROHAN_END_TIMING(write_iter_t, write_time);
+	ROHAN_END_TIMING(rohan_write_iter_t, write_time);
 	return ret;
 }
 
@@ -650,10 +650,10 @@ SYSCALL_DEFINE4(pread64, unsigned int, fd, char __user *, buf,
 	ssize_t ret = -EBADF;
 	rohan_timing_t read_time;
 
-	ROHAN_START_TIMING(read_iter_t, read_time);
+	ROHAN_START_TIMING(rohan_read_iter_t, read_time);
 
 	if (pos < 0) {
-		ROHAN_END_TIMING(read_iter_t, read_time);
+		ROHAN_END_TIMING(rohan_read_iter_t, read_time);
 		return -EINVAL;
 	}
 
@@ -665,7 +665,7 @@ SYSCALL_DEFINE4(pread64, unsigned int, fd, char __user *, buf,
 		fdput(f);
 	}
 
-	ROHAN_END_TIMING(read_iter_t, read_time);
+	ROHAN_END_TIMING(rohan_read_iter_t, read_time);
 	return ret;
 }
 
@@ -676,10 +676,10 @@ SYSCALL_DEFINE4(pwrite64, unsigned int, fd, const char __user *, buf,
 	ssize_t ret = -EBADF;
 	rohan_timing_t write_time;
 
-	ROHAN_START_TIMING(write_iter_t, write_time);
+	ROHAN_START_TIMING(rohan_write_iter_t, write_time);
 
 	if (pos < 0) {
-		ROHAN_END_TIMING(write_iter_t, write_time);
+		ROHAN_END_TIMING(rohan_write_iter_t, write_time);
 		return -EINVAL;
 	}
 
@@ -691,7 +691,7 @@ SYSCALL_DEFINE4(pwrite64, unsigned int, fd, const char __user *, buf,
 		fdput(f);
 	}
 
-	ROHAN_END_TIMING(write_iter_t, write_time);
+	ROHAN_END_TIMING(rohan_write_iter_t, write_time);
 	return ret;
 }
 

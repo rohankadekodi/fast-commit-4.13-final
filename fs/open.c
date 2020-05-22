@@ -35,6 +35,9 @@
 
 #include "internal.h"
 
+DEFINE_PER_CPU(u64[ROHAN_TIMING_NUM], RohanTimingstats_percpu);
+
+
 int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
 	struct file *filp)
 {
@@ -1252,7 +1255,7 @@ long do_sys_open_inode_size(int dfd, const char __user *filename, int flags, umo
 		copy_to_user(size, &length, sizeof(unsigned long long));
 
 	}
-	
+
 	putname(tmp);
 
 	return fd;
@@ -1274,16 +1277,17 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	struct filename *tmp;
 	rohan_timing_t open_time;
 
-	ROHAN_START_TIMING(create_t, open_time);
+
+	ROHAN_START_TIMING(rohan_create_t, open_time);
 
 	if (fd) {
-		ROHAN_END_TIMING(create_t, open_time);
+		ROHAN_END_TIMING(rohan_create_t, open_time);
 		return fd;
 	}
 
 	tmp = getname(filename);
 	if (IS_ERR(tmp)) {
-		ROHAN_END_TIMING(create_t, open_time);
+		ROHAN_END_TIMING(rohan_create_t, open_time);
 		return PTR_ERR(tmp);
 	}
 
@@ -1299,7 +1303,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 		}
 	}
 	putname(tmp);
-	ROHAN_END_TIMING(create_t, open_time);
+	ROHAN_END_TIMING(rohan_create_t, open_time);
 	return fd;
 }
 

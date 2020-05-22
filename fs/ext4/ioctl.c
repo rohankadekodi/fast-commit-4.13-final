@@ -1040,10 +1040,12 @@ resizefs_out:
 		return 0;
 	}
 	case EXT4_PRINT_TIMING: {
+		printk(KERN_INFO "%s: in print timing\n", __func__);
 		rohan_print_timing_stats();
 		return 0;
 	}
 	case EXT4_CLEAR_STATS: {
+		printk(KERN_INFO "%s: in clear timing\n", __func__);
 		rohan_clear_timing_stats();
 		return 0;
 	}

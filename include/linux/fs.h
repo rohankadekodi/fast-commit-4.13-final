@@ -3358,18 +3358,18 @@ extern void inode_nohighmem(struct inode *inode);
 /* ======================= Timing ========================= */
 enum rohan_timing_category {
 	/* Namei operations */
-	namei_title_t,
-	create_t,
-	unlink_t,
+	rohan_namei_title_t,
+	rohan_create_t,
+	rohan_unlink_t,
 
 	/* I/O operations */
-	io_title_t,
-	read_iter_t,
-	write_iter_t,
+	rohan_io_title_t,
+	rohan_read_iter_t,
+	rohan_write_iter_t,
 
 	/* Others */
-	others_title_t,
-	fsync_t,
+	rohan_others_title_t,
+	rohan_fsync_t,
 
 	/* Sentinel */
 	ROHAN_TIMING_NUM,
@@ -3403,11 +3403,11 @@ static void rohan_print_timing_stats(void)
 		}
 	}
 
-	printk(KERN_INFO "create timing %llu\n", RohanTimingstats[create_t]);
-	printk(KERN_INFO "unlink timing %llu\n", RohanTimingstats[unlink_t]);
-	printk(KERN_INFO "read timing %llu\n", RohanTimingstats[read_iter_t]);
-	printk(KERN_INFO "write timing %llu\n", RohanTimingstats[write_iter_t]);
-	printk(KERN_INFO "fsync timing %llu\n", RohanTimingstats[fsync_t]);
+	printk(KERN_INFO "create timing %llu\n", RohanTimingstats[rohan_create_t]);
+	printk(KERN_INFO "unlink timing %llu\n", RohanTimingstats[rohan_unlink_t]);
+	printk(KERN_INFO "read timing %llu\n", RohanTimingstats[rohan_read_iter_t]);
+	printk(KERN_INFO "write timing %llu\n", RohanTimingstats[rohan_write_iter_t]);
+	printk(KERN_INFO "fsync timing %llu\n", RohanTimingstats[rohan_fsync_t]);
 
 }
 

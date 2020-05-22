@@ -4014,13 +4014,13 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 	unsigned int lookup_flags = 0;
 	rohan_timing_t unlink_time;
 
-	ROHAN_START_TIMING(unlink_t, unlink_time);
+	ROHAN_START_TIMING(rohan_unlink_t, unlink_time);
 
 retry:
 	name = filename_parentat(dfd, getname(pathname), lookup_flags,
 				&path, &last, &type);
 	if (IS_ERR(name)) {
-		ROHAN_END_TIMING(unlink_t, unlink_time);
+		ROHAN_END_TIMING(rohan_unlink_t, unlink_time);
 		return PTR_ERR(name);
 	}
 
@@ -4069,7 +4069,7 @@ exit1:
 		goto retry;
 	}
 
-	ROHAN_END_TIMING(unlink_t, unlink_time);
+	ROHAN_END_TIMING(rohan_unlink_t, unlink_time);
 	return error;
 
 slashes:
