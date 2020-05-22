@@ -4012,11 +4012,17 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 	struct inode *inode = NULL;
 	struct inode *delegated_inode = NULL;
 	unsigned int lookup_flags = 0;
+	rohan_timing_t unlink_time;
+
+	ROHAN_START_TIMING(unlink_t, unlink_time);
+
 retry:
 	name = filename_parentat(dfd, getname(pathname), lookup_flags,
 				&path, &last, &type);
-	if (IS_ERR(name))
+	if (IS_ERR(name)) {
+		ROHAN_END_TIMING(unlink_t, unlink_time);
 		return PTR_ERR(name);
+	}
 
 	error = -EISDIR;
 	if (type != LAST_NORM)
@@ -4062,6 +4068,8 @@ exit1:
 		inode = NULL;
 		goto retry;
 	}
+
+	ROHAN_END_TIMING(unlink_t, unlink_time);
 	return error;
 
 slashes:

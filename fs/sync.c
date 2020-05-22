@@ -237,11 +237,15 @@ static int do_fsync(unsigned int fd, int datasync)
 {
 	struct fd f = fdget(fd);
 	int ret = -EBADF;
+	rohan_timing_t fsync_time;
+
+	ROHAN_START_TIMING(fsync_t, fsync_time);
 
 	if (f.file) {
 		ret = vfs_fsync(f.file, datasync);
 		fdput(f);
 	}
+	ROHAN_END_TIMING(fsync_t, fsync_time);
 	return ret;
 }
 

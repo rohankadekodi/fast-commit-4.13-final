@@ -606,6 +606,9 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 {
 	struct fd f = fdget_pos(fd);
 	ssize_t ret = -EBADF;
+	rohan_timing_t read_time;
+
+	ROHAN_START_TIMING(read_iter_t, read_time);
 
 	if (f.file) {
 		loff_t pos = file_pos_read(f.file);
@@ -614,6 +617,8 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 			file_pos_write(f.file, pos);
 		fdput_pos(f);
 	}
+
+	ROHAN_END_TIMING(read_iter_t, read_time);
 	return ret;
 }
 
@@ -622,6 +627,9 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 {
 	struct fd f = fdget_pos(fd);
 	ssize_t ret = -EBADF;
+	rohan_timing_t write_time;
+
+	ROHAN_START_TIMING(write_iter_t, write_time);
 
 	if (f.file) {
 		loff_t pos = file_pos_read(f.file);
@@ -631,6 +639,7 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 		fdput_pos(f);
 	}
 
+	ROHAN_END_TIMING(write_iter_t, write_time);
 	return ret;
 }
 
@@ -639,9 +648,14 @@ SYSCALL_DEFINE4(pread64, unsigned int, fd, char __user *, buf,
 {
 	struct fd f;
 	ssize_t ret = -EBADF;
+	rohan_timing_t read_time;
 
-	if (pos < 0)
+	ROHAN_START_TIMING(read_iter_t, read_time);
+
+	if (pos < 0) {
+		ROHAN_END_TIMING(read_iter_t, read_time);
 		return -EINVAL;
+	}
 
 	f = fdget(fd);
 	if (f.file) {
@@ -651,6 +665,7 @@ SYSCALL_DEFINE4(pread64, unsigned int, fd, char __user *, buf,
 		fdput(f);
 	}
 
+	ROHAN_END_TIMING(read_iter_t, read_time);
 	return ret;
 }
 
@@ -659,18 +674,24 @@ SYSCALL_DEFINE4(pwrite64, unsigned int, fd, const char __user *, buf,
 {
 	struct fd f;
 	ssize_t ret = -EBADF;
+	rohan_timing_t write_time;
 
-	if (pos < 0)
+	ROHAN_START_TIMING(write_iter_t, write_time);
+
+	if (pos < 0) {
+		ROHAN_END_TIMING(write_iter_t, write_time);
 		return -EINVAL;
+	}
 
 	f = fdget(fd);
 	if (f.file) {
 		ret = -ESPIPE;
-		if (f.file->f_mode & FMODE_PWRITE)  
+		if (f.file->f_mode & FMODE_PWRITE)
 			ret = vfs_write(f.file, buf, count, &pos);
 		fdput(f);
 	}
 
+	ROHAN_END_TIMING(write_iter_t, write_time);
 	return ret;
 }
 
@@ -687,7 +708,7 @@ SYSCALL_DEFINE4(pwrite64_temporal, unsigned int, fd, const char __user *, buf,
 	f = fdget(fd);
 	if (f.file) {
 		ret = -ESPIPE;
-		if (f.file->f_mode & FMODE_PWRITE)  
+		if (f.file->f_mode & FMODE_PWRITE)
 			ret = vfs_write_temporal(f.file, buf, count, &pos);
 		fdput(f);
 	}

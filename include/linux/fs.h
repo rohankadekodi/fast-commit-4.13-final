@@ -3355,4 +3355,73 @@ static inline bool dir_relax_shared(struct inode *inode)
 extern bool path_noexec(const struct path *path);
 extern void inode_nohighmem(struct inode *inode);
 
+/* ======================= Timing ========================= */
+enum rohan_timing_category {
+	/* Namei operations */
+	namei_title_t,
+	create_t,
+	unlink_t,
+
+	/* I/O operations */
+	io_title_t,
+	read_iter_t,
+	write_iter_t,
+
+	/* Others */
+	others_title_t,
+	fsync_t,
+
+	/* Sentinel */
+	ROHAN_TIMING_NUM,
+};
+
+static u64 RohanTimingstats[ROHAN_TIMING_NUM];
+DECLARE_PER_CPU(u64[ROHAN_TIMING_NUM], RohanTimingstats_percpu);
+
+typedef struct timespec rohan_timing_t;
+
+#define ROHAN_START_TIMING(name, start) \
+	{getrawmonotonic(&start); }
+
+#define ROHAN_END_TIMING(name, start) \
+	{	rohan_timing_t end; \
+		getrawmonotonic(&end); \
+		__this_cpu_add(RohanTimingstats_percpu[name], \
+			(end.tv_sec - start.tv_sec) * 1000000000 + \
+			(end.tv_nsec - start.tv_nsec)); \
+	}
+
+static void rohan_print_timing_stats(void)
+{
+	int i;
+	int cpu;
+
+	for (i = 0; i < ROHAN_TIMING_NUM; i++) {
+		RohanTimingstats[i] = 0;
+		for_each_possible_cpu(cpu) {
+			RohanTimingstats[i] += per_cpu(RohanTimingstats_percpu[i], cpu);
+		}
+	}
+
+	printk(KERN_INFO "create timing %llu\n", RohanTimingstats[create_t]);
+	printk(KERN_INFO "unlink timing %llu\n", RohanTimingstats[unlink_t]);
+	printk(KERN_INFO "read timing %llu\n", RohanTimingstats[read_iter_t]);
+	printk(KERN_INFO "write timing %llu\n", RohanTimingstats[write_iter_t]);
+	printk(KERN_INFO "fsync timing %llu\n", RohanTimingstats[fsync_t]);
+
+}
+
+static void rohan_clear_timing_stats(void)
+{
+	int i;
+	int cpu;
+
+	for (i = 0; i < ROHAN_TIMING_NUM; i++) {
+		RohanTimingstats[i] = 0;
+		for_each_possible_cpu(cpu) {
+			per_cpu(RohanTimingstats_percpu[i], cpu) = 0;
+		}
+	}
+}
+
 #endif /* _LINUX_FS_H */

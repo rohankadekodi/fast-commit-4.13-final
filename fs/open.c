@@ -1272,13 +1272,20 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	struct open_flags op;
 	int fd = build_open_flags(flags, mode, &op);
 	struct filename *tmp;
+	rohan_timing_t open_time;
 
-	if (fd)
+	ROHAN_START_TIMING(create_t, open_time);
+
+	if (fd) {
+		ROHAN_END_TIMING(create_t, open_time);
 		return fd;
+	}
 
 	tmp = getname(filename);
-	if (IS_ERR(tmp))
+	if (IS_ERR(tmp)) {
+		ROHAN_END_TIMING(create_t, open_time);
 		return PTR_ERR(tmp);
+	}
 
 	fd = get_unused_fd_flags(flags);
 	if (fd >= 0) {
@@ -1292,6 +1299,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 		}
 	}
 	putname(tmp);
+	ROHAN_END_TIMING(create_t, open_time);
 	return fd;
 }
 

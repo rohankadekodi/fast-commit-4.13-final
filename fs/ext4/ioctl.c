@@ -1039,6 +1039,14 @@ resizefs_out:
 
 		return 0;
 	}
+	case EXT4_PRINT_TIMING: {
+		rohan_print_timing_stats();
+		return 0;
+	}
+	case EXT4_CLEAR_STATS: {
+		rohan_clear_timing_stats();
+		return 0;
+	}
 	case EXT4_IOC_SHUTDOWN:
 		return ext4_shutdown(sb, arg);
 	default:
