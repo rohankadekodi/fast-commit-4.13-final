@@ -458,7 +458,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	write_unlock(&journal->j_state_lock);
 
 	if (journal->j_fc_cleanup_callback)
-		journal->j_fc_cleanup_callback(journal);
+		journal->j_fc_cleanup_callback(journal, 1);
 
 	commit_transaction = journal->j_running_transaction;
 

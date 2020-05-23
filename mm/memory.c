@@ -3840,7 +3840,7 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		create_huge_pud_time, wp_huge_pud_time,
 		pmd_alloc_time, create_huge_pmd_time;
 	*/
-	
+
 	//if (vma->vm_file && IS_DAX(file_inode(vma->vm_file)))
 	//	LEDGER_START_TIMER(p4d_alloc_t, p4d_alloc_time);
 	pgd = pgd_offset(mm, address);
@@ -3972,7 +3972,7 @@ int handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		//	LEDGER_END_TIMER(handle_mm_fault_t, handle_mm_fault_time);
 
 	}
-	
+
 	if (flags & FAULT_FLAG_USER) {
 		mem_cgroup_oom_disable();
 		/*

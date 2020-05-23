@@ -819,7 +819,7 @@ int jbd2_start_async_fc_wait(journal_t *journal, tid_t tid)
 void jbd2_stop_async_fc(journal_t *journal, tid_t tid)
 {
 	if (journal->j_fc_cleanup_callback)
-		journal->j_fc_cleanup_callback(journal);
+		journal->j_fc_cleanup_callback(journal, 0);
 	write_lock(&journal->j_state_lock);
 	journal->j_flags &= ~JBD2_FAST_COMMIT_ONGOING;
 	write_unlock(&journal->j_state_lock);

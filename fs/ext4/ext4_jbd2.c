@@ -1121,7 +1121,7 @@ skip_unlock:
 	return nblks;
 }
 
-static void ext4_journal_fc_cleanup_cb(journal_t *journal)
+static void ext4_journal_fc_cleanup_cb(journal_t *journal, int full_commit)
 {
 	struct super_block *sb = journal->j_private;
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
@@ -1137,8 +1137,10 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal)
 	spin_lock(&sbi->s_fc_lock);
 	sbi->s_fc_q_locked = 0;
 
-	if (test_opt2(sb, JOURNAL_FC_PMEM))
-		atomic64_set(&(sbi->fc_journal_valid_tail), 0);
+	if (full_commit) {
+		if (test_opt2(sb, JOURNAL_FC_PMEM))
+			atomic64_set(&(sbi->fc_journal_valid_tail), 0);
+	}
 
 	list_for_each_safe(pos, n, &sbi->s_fc_q) {
 		iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
