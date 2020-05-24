@@ -990,6 +990,7 @@ struct ext4_fc_lrange {
 struct ext4_fc_tail {
 	__le32 fc_crc;
 	__le32 fc_tid;
+	__le32 fc_seq;
 };
 
 
@@ -1645,6 +1646,7 @@ struct ext4_sb_info {
 
 	/* Ext4 fast commit stuff */
 	atomic_t s_fc_subtid;
+	atomic_t s_fc_seq;
 	struct list_head s_fc_q;	/* Inodes staged for fast commit
 					 * that have data changes in them.
 					 */
@@ -1657,6 +1659,7 @@ struct ext4_sb_info {
 					 * that have data changes in them.
 					 */
 	struct list_head s_fc_dentry_q;
+	struct list_head s_fc_staging_dentry_q;
 	int s_fc_bytes;
 	struct buffer_head *s_fc_bh;
 	spinlock_t s_fc_lock;

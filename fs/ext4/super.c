@@ -4014,9 +4014,11 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 
 	sbi->s_fc_q_locked = 0;
 	atomic_set(&sbi->s_fc_subtid, 0);
+	atomic_set(&sbi->s_fc_seq, 0);
 	INIT_LIST_HEAD(&sbi->s_fc_q);
 	INIT_LIST_HEAD(&sbi->s_fc_staging_q);
 	INIT_LIST_HEAD(&sbi->s_fc_dentry_q);
+	INIT_LIST_HEAD(&sbi->s_fc_staging_dentry_q);
 	sbi->s_fc_bytes = 0;
 	sbi->s_mount_state &= ~EXT4_FC_INELIGIBLE;
 	spin_lock_init(&sbi->s_fc_lock);

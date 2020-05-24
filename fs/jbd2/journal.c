@@ -816,15 +816,31 @@ int jbd2_start_async_fc_wait(journal_t *journal, tid_t tid)
 	return ret;
 }
 
-void jbd2_stop_async_fc(journal_t *journal, tid_t tid)
+int __jbd2_stop_async_fc(journal_t *journal, tid_t tid, bool fallback)
 {
 	if (journal->j_fc_cleanup_callback)
 		journal->j_fc_cleanup_callback(journal, 0);
 	write_lock(&journal->j_state_lock);
 	journal->j_flags &= ~JBD2_FAST_COMMIT_ONGOING;
+	if (fallback)
+		journal->j_flags |= JBD2_FULL_COMMIT_ONGOING;
 	write_unlock(&journal->j_state_lock);
 	wake_up(&journal->j_wait_async_fc);
+	if (fallback)
+		return jbd2_complete_transaction(journal, tid);
+	return 0;
 }
+
+int jbd2_stop_async_fc(journal_t *journal)
+{
+	return __jbd2_stop_async_fc(journal, 0, 0);
+}
+
+int jbd2_stop_async_fc_do_commit(journal_t *journal, tid_t tid)
+{
+	return __jbd2_stop_async_fc(journal, tid, 1);
+}
+
 
 int jbd2_is_fast_commit_ongoing(journal_t *journal)
 {

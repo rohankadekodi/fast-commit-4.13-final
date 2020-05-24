@@ -1467,7 +1467,8 @@ extern int jbd2_cleanup_journal_tail(journal_t *);
 /* Fast commit related APIs */
 int jbd2_start_async_fc_nowait(journal_t *journal, tid_t tid);
 int jbd2_start_async_fc_wait(journal_t *journal, tid_t tid);
-void jbd2_stop_async_fc(journal_t *journal, tid_t tid);
+int jbd2_stop_async_fc(journal_t *journal);
+int jbd2_stop_async_fc_do_commit(journal_t *journal, tid_t tid);
 int jbd2_is_fast_commit_ongoing(journal_t *journal);
 int jbd2_init_fast_commit(journal_t *journal, int num_fc_blks);
 int jbd2_map_fc_buf(journal_t *journal, struct buffer_head **bh_out);
