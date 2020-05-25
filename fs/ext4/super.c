@@ -1657,7 +1657,7 @@ static const struct mount_opts {
 	{Opt_fc_fsync_noop, EXT4_MOUNT2_JOURNAL_FSYNC_NOOP,
 	 MOPT_CLEAR | MOPT_2 | MOPT_EXT4_ONLY},
 	{Opt_fc_sync, EXT4_MOUNT2_JOURNAL_FC_SYNC,
-	 MOPT_CLEAR | MOPT_2 | MOPT_EXT4_ONLY},
+	 MOPT_SET | MOPT_2 | MOPT_EXT4_ONLY},
 	{Opt_fc_pmem, EXT4_MOUNT2_JOURNAL_FC_PMEM,
 	 MOPT_SET | MOPT_2 | MOPT_EXT4_ONLY},
 	{Opt_err, 0, 0}

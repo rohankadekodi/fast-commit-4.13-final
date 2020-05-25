@@ -104,8 +104,10 @@ int __ext4_journal_stop(const char *where, unsigned int line, handle_t *handle)
 	sb = handle->h_transaction->t_journal->j_private;
 
 	count = atomic_read(&EXT4_SB(sb)->s_fc_track_calls);
-	if (count >= 1)
+	if (count >= 1) {
+		//printk(KERN_INFO "%s: count = %d\n", __func__, count);
 		handle->h_sync = 1;
+	}
 
 	rc = jbd2_journal_stop(handle);
 
@@ -641,7 +643,7 @@ static int __ext4_fc_track_template(
 
 	ext4_fc_enqueue_inode(inode);
 
-	atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
+	//atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
 
 	return ret;
 }
@@ -650,6 +652,20 @@ struct __ext4_dentry_update_args {
 	struct dentry *dentry;
 	int op;
 };
+
+static int pad_pmem_bytes(int size)
+{
+	int padding = 0;
+	int cacheline_size = 64;
+	int size_with_crc = size + sizeof(u32);
+
+	if (size_with_crc % cacheline_size == 0)
+		return size_with_crc;
+
+	size_with_crc += cacheline_size - (size_with_crc % cacheline_size);
+	return size_with_crc;
+}
+
 
 static int __ext4_dentry_update(struct inode *inode, void *arg, bool update)
 {
@@ -691,8 +707,9 @@ static int __ext4_dentry_update(struct inode *inode, void *arg, bool update)
 	node->fcd_name.len = dentry->d_name.len;
 
 	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC)) {
-		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, sizeof(struct ext4_fc_dentry_update), &crc);
+		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, pad_pmem_bytes(sizeof(struct ext4_fc_dentry_update)), &crc);
 		if (pmem_addr == NULL) {
+			//printk(KERN_INFO "%s: incrementing track calls\n", __func__, count);
 			atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
 			kmem_cache_free(ext4_fc_dentry_cachep, node);
 			write_lock(&ei->i_fc_lock);
@@ -769,8 +786,9 @@ static int __ext4_fc_add_inode(struct inode *inode, void *arg, bool update)
 	u8 *pmem_addr;
 
 	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC)) {
-		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, sizeof(pass_to_pm), &crc);
+		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, pad_pmem_bytes(sizeof(pass_to_pm)), &crc);
 		if (pmem_addr == NULL) {
+			//printk(KERN_INFO "%s: incrementing track calls\n", __func__, count);
 			atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
 			return 0;
 		}
@@ -832,8 +850,9 @@ int __ext4_fc_track_range(struct inode *inode, void *arg, bool update)
 	}
 
 	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC)) {
-		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, sizeof(pass_to_pm), &crc);
+		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, pad_pmem_bytes(sizeof(pass_to_pm)), &crc);
 		if (pmem_addr == NULL) {
+			//printk(KERN_INFO "%s: incrementing track calls\n", __func__, count);
 			atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
 			return 0;
 		}
@@ -1208,6 +1227,12 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal, int full_commit)
 	struct ext4_fc_dentry_update *fc_dentry;
 	struct list_head *pos, *n;
 
+	if (full_commit) {
+		if (test_opt2(sb, JOURNAL_FC_PMEM))
+			atomic64_set(&(sbi->fc_journal_valid_tail), 0);
+		atomic_set(&sbi->s_fc_seq, 0);
+	}
+
 	if (test_opt2(sb, JOURNAL_FC_SYNC)) {
 		atomic_set(&sbi->s_fc_track_calls, 0);
 		return;
@@ -1220,12 +1245,6 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal, int full_commit)
 
 	spin_lock(&sbi->s_fc_lock);
 	sbi->s_fc_q_locked = 0;
-
-	if (full_commit) {
-		if (test_opt2(sb, JOURNAL_FC_PMEM))
-			atomic64_set(&(sbi->fc_journal_valid_tail), 0);
-		atomic_set(&sbi->s_fc_seq, 0);
-	}
 
 	list_for_each_safe(pos, n, &sbi->s_fc_q) {
 		iter = list_entry(pos, struct ext4_inode_info, i_fc_list);
