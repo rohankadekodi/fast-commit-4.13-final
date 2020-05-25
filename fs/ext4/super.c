@@ -1354,7 +1354,7 @@ enum {
 	Opt_dioread_nolock, Opt_dioread_lock,
 	Opt_discard, Opt_nodiscard, Opt_init_itable, Opt_noinit_itable,
 	Opt_max_dir_size_kb, Opt_nojournal_checksum, Opt_nombcache,
-	Opt_no_fc, Opt_fc_pmem
+	Opt_no_fc, Opt_fc_pmem, Opt_fc_fsync_noop, Opt_fc_sync,
 };
 
 static const match_table_t tokens = {
@@ -1437,6 +1437,8 @@ static const match_table_t tokens = {
 	{Opt_noinit_itable, "noinit_itable"},
 	{Opt_no_fc, "no_fc"},
 	{Opt_fc_pmem, "fc_pmem"},
+	{Opt_fc_fsync_noop, "fc_fsync_noop"},
+	{Opt_fc_sync, "fc_sync"},
 	{Opt_max_dir_size_kb, "max_dir_size_kb=%u"},
 	{Opt_test_dummy_encryption, "test_dummy_encryption"},
 	{Opt_nombcache, "nombcache"},
@@ -1651,6 +1653,10 @@ static const struct mount_opts {
 	{Opt_test_dummy_encryption, 0, MOPT_GTE0},
 	{Opt_nombcache, EXT4_MOUNT_NO_MBCACHE, MOPT_SET},
 	{Opt_no_fc, EXT4_MOUNT2_JOURNAL_FAST_COMMIT,
+	 MOPT_CLEAR | MOPT_2 | MOPT_EXT4_ONLY},
+	{Opt_fc_fsync_noop, EXT4_MOUNT2_JOURNAL_FSYNC_NOOP,
+	 MOPT_CLEAR | MOPT_2 | MOPT_EXT4_ONLY},
+	{Opt_fc_sync, EXT4_MOUNT2_JOURNAL_FC_SYNC,
 	 MOPT_CLEAR | MOPT_2 | MOPT_EXT4_ONLY},
 	{Opt_fc_pmem, EXT4_MOUNT2_JOURNAL_FC_PMEM,
 	 MOPT_SET | MOPT_2 | MOPT_EXT4_ONLY},
@@ -4015,6 +4021,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	sbi->s_fc_q_locked = 0;
 	atomic_set(&sbi->s_fc_subtid, 0);
 	atomic_set(&sbi->s_fc_seq, 0);
+	atomic_set(&sbi->s_fc_track_calls, 0);
 	INIT_LIST_HEAD(&sbi->s_fc_q);
 	INIT_LIST_HEAD(&sbi->s_fc_staging_q);
 	INIT_LIST_HEAD(&sbi->s_fc_dentry_q);

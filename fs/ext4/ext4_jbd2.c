@@ -88,6 +88,7 @@ int __ext4_journal_stop(const char *where, unsigned int line, handle_t *handle)
 	struct super_block *sb;
 	int err;
 	int rc;
+	int count;
 
 	if (!ext4_handle_valid(handle)) {
 		ext4_put_nojournal(handle);
@@ -101,6 +102,11 @@ int __ext4_journal_stop(const char *where, unsigned int line, handle_t *handle)
 	}
 
 	sb = handle->h_transaction->t_journal->j_private;
+
+	count = atomic_read(&EXT4_SB(sb)->s_fc_track_calls);
+	if (count >= 1)
+		handle->h_sync = 1;
+
 	rc = jbd2_journal_stop(handle);
 
 	if (!err)
@@ -371,6 +377,9 @@ static void ext4_fc_enqueue_inode(struct inode *inode)
 	    (EXT4_SB(inode->i_sb)->s_mount_state & EXT4_FC_REPLAY))
 		return;
 
+	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC))
+		return;
+
 	spin_lock(&sbi->s_fc_lock);
 	if (list_empty(&EXT4_I(inode)->i_fc_list)) {
 		ext4_set_inode_state(inode, EXT4_STATE_FC_DIRTY);
@@ -394,6 +403,9 @@ void ext4_fc_del(struct inode *inode)
 {
 	if (!test_opt2(inode->i_sb, JOURNAL_FAST_COMMIT) ||
 	    (EXT4_SB(inode->i_sb)->s_mount_state & EXT4_FC_REPLAY))
+		return;
+
+	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC))
 		return;
 
 restart:
@@ -439,6 +451,9 @@ void ext4_fc_mark_ineligible(struct inode *inode, int reason)
 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
 	struct ext4_inode_info *ei = EXT4_I(inode);
 
+	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC))
+		return;
+
 	if (!test_opt2(inode->i_sb, JOURNAL_FAST_COMMIT) ||
 	    (EXT4_SB(inode->i_sb)->s_mount_state & EXT4_FC_REPLAY))
 		return;
@@ -459,210 +474,6 @@ void ext4_fc_disable(struct super_block *sb, int reason)
 	sbi->s_mount_state |= EXT4_FC_INELIGIBLE;
 	WARN_ON(reason >= EXT4_FC_REASON_MAX);
 	sbi->s_fc_stats.fc_ineligible_reason_count[reason]++;
-}
-
-/*
- * Generic fast commit tracking function. If this is the first
- * time this we are called after a full commit, we initialize
- * fast commit fields and then call __fc_track_fn() with
- * update = 0. If we have already been called after a full commit,
- * we pass update = 1. Based on that, the track function can
- * determine if it needs to track a field for the first time
- * or if it needs to just update the previously tracked value.
- */
-static int __ext4_fc_track_template(
-	struct inode *inode,
-	int (*__fc_track_fn)(struct inode *, void *, bool),
-	void *args)
-{
-	tid_t running_txn_tid = get_running_txn_tid(inode->i_sb);
-	bool update = false;
-	struct ext4_inode_info *ei = EXT4_I(inode);
-	int ret;
-
-	if (!test_opt2(inode->i_sb, JOURNAL_FAST_COMMIT) ||
-	    (EXT4_SB(inode->i_sb)->s_mount_state & EXT4_FC_REPLAY))
-		return -EOPNOTSUPP;
-
-	write_lock(&ei->i_fc_lock);
-	if (running_txn_tid == ei->i_fc_tid) {
-		if (!ext4_test_inode_state(inode, EXT4_STATE_FC_ELIGIBLE)) {
-			write_unlock(&ei->i_fc_lock);
-			return -EINVAL;
-		}
-		update = true;
-	} else {
-		ext4_reset_inode_fc_info(inode);
-		ei->i_fc_tid = running_txn_tid;
-		atomic_set(&ei->i_fc_subtid,
-			   atomic_read(&EXT4_SB(inode->i_sb)->s_fc_subtid));
-		ext4_set_inode_state(inode, EXT4_STATE_FC_ELIGIBLE);
-	}
-	ret = __fc_track_fn(inode, args, update);
-	write_unlock(&ei->i_fc_lock);
-
-	ext4_fc_enqueue_inode(inode);
-
-	return ret;
-}
-
-struct __ext4_dentry_update_args {
-	struct dentry *dentry;
-	int op;
-};
-
-static int __ext4_dentry_update(struct inode *inode, void *arg, bool update)
-{
-	struct ext4_fc_dentry_update *node;
-	struct ext4_inode_info *ei = EXT4_I(inode);
-	struct __ext4_dentry_update_args *dentry_update =
-		(struct __ext4_dentry_update_args *)arg;
-	struct dentry *dentry = dentry_update->dentry;
-
-	write_unlock(&ei->i_fc_lock);
-	node = kmem_cache_alloc(ext4_fc_dentry_cachep, GFP_NOFS);
-	if (!node) {
-		ext4_fc_disable(inode->i_sb, EXT4_FC_REASON_MEM);
-		write_lock(&ei->i_fc_lock);
-		return -ENOMEM;
-	}
-
-	node->fcd_delete = 0;
-	node->fcd_op = dentry_update->op;
-	node->fcd_parent = dentry->d_parent->d_inode->i_ino;
-	node->fcd_ino = inode->i_ino;
-	if (dentry->d_name.len > DNAME_INLINE_LEN) {
-		node->fcd_name.name = kmalloc(dentry->d_name.len + 1,
-						GFP_KERNEL);
-		if (!node->fcd_iname) {
-			kmem_cache_free(ext4_fc_dentry_cachep, node);
-			return -ENOMEM;
-		}
-		memcpy((u8 *)node->fcd_name.name, dentry->d_name.name,
-			dentry->d_name.len);
-	} else {
-		memcpy(node->fcd_iname, dentry->d_name.name,
-			dentry->d_name.len);
-		node->fcd_name.name = node->fcd_iname;
-	}
-	node->fcd_name.len = dentry->d_name.len;
-
-	spin_lock(&EXT4_SB(inode->i_sb)->s_fc_lock);
-	if (EXT4_SB(inode->i_sb)->s_fc_q_locked)
-		list_add_tail(&node->fcd_list,
-			      &EXT4_SB(inode->i_sb)->s_fc_staging_dentry_q);
-	else
-		list_add_tail(&node->fcd_list,
-			      &EXT4_SB(inode->i_sb)->s_fc_dentry_q);
-
-	spin_unlock(&EXT4_SB(inode->i_sb)->s_fc_lock);
-	write_lock(&ei->i_fc_lock);
-
-	return 0;
-}
-
-void ext4_fc_track_unlink(struct inode *inode, struct dentry *dentry)
-{
-	struct __ext4_dentry_update_args args;
-	int ret;
-
-	args.dentry = dentry;
-	args.op = EXT4_FC_TAG_DEL_DENTRY;
-
-	ret = __ext4_fc_track_template(inode, __ext4_dentry_update,
-				       (void *)&args);
-	trace_ext4_fc_track_unlink(inode, dentry, ret);
-}
-
-void ext4_fc_track_link(struct inode *inode, struct dentry *dentry)
-{
-	struct __ext4_dentry_update_args args;
-	int ret;
-
-	args.dentry = dentry;
-	args.op = EXT4_FC_TAG_ADD_DENTRY;
-
-	ret = __ext4_fc_track_template(inode, __ext4_dentry_update,
-				       (void *)&args);
-	trace_ext4_fc_track_link(inode, dentry, ret);
-}
-
-void ext4_fc_track_create(struct inode *inode, struct dentry *dentry)
-{
-	struct __ext4_dentry_update_args args;
-	int ret;
-
-	args.dentry = dentry;
-	args.op = EXT4_FC_TAG_CREAT_DENTRY;
-
-	ret = __ext4_fc_track_template(inode, __ext4_dentry_update,
-				       (void *)&args);
-	trace_ext4_fc_track_create(inode, dentry, ret);
-}
-
-static int __ext4_fc_add_inode(struct inode *inode, void *arg, bool update)
-{
-	struct ext4_inode_info *ei = EXT4_I(inode);
-
-	if (update)
-		return -EEXIST;
-
-	ei->i_fc_lblk_start = (i_size_read(inode) - 1) >> inode->i_blkbits;
-	ei->i_fc_lblk_end = (i_size_read(inode) - 1) >> inode->i_blkbits;
-
-	return 0;
-}
-
-void ext4_fc_track_inode(struct inode *inode)
-{
-	int ret;
-
-	ret = __ext4_fc_track_template(inode, __ext4_fc_add_inode, NULL);
-	trace_ext4_fc_track_inode(inode, ret);
-}
-
-struct __ext4_fc_track_range_args {
-	ext4_lblk_t start, end;
-};
-
-#define MIN(__a, __b)  ((__a) < (__b) ? (__a) : (__b))
-#define MAX(__a, __b)  ((__a) > (__b) ? (__a) : (__b))
-
-int __ext4_fc_track_range(struct inode *inode, void *arg, bool update)
-{
-	struct ext4_inode_info *ei = EXT4_I(inode);
-	struct __ext4_fc_track_range_args *__arg =
-		(struct __ext4_fc_track_range_args *)arg;
-
-	if (inode->i_ino < EXT4_FIRST_INO(inode->i_sb)) {
-		ext4_debug("Special inode %ld being modified\n", inode->i_ino);
-		return -ECANCELED;
-	}
-
-	if (update) {
-		ei->i_fc_lblk_start = MIN(ei->i_fc_lblk_start, __arg->start);
-		ei->i_fc_lblk_end = MAX(ei->i_fc_lblk_end, __arg->end);
-	} else {
-		ei->i_fc_lblk_start = __arg->start;
-		ei->i_fc_lblk_end = __arg->end;
-	}
-
-	return 0;
-}
-
-void ext4_fc_track_range(struct inode *inode, ext4_lblk_t start,
-			 ext4_lblk_t end)
-{
-	struct __ext4_fc_track_range_args args;
-	int ret;
-
-	args.start = start;
-	args.end = end;
-
-	ret = __ext4_fc_track_template(inode,
-					__ext4_fc_track_range, &args);
-
-	trace_ext4_fc_track_range(inode, start, end, ret);
 }
 
 static void ext4_end_buffer_io_sync(struct buffer_head *bh, int uptodate)
@@ -689,7 +500,6 @@ void submit_fc_bh(struct buffer_head *bh)
 	bh->b_end_io = ext4_end_buffer_io_sync;
 	submit_bh(REQ_OP_WRITE, REQ_SYNC, bh);
 }
-
 
 u8 *__ext4_alloc_fc_bytes_pmem(struct super_block *sb, int len, u32 *crc)
 {
@@ -789,21 +599,289 @@ void ext4_fc_memcpy(struct super_block *sb, void *dst, const void *src,
     return;
 }
 
+/*
+ * Generic fast commit tracking function. If this is the first
+ * time this we are called after a full commit, we initialize
+ * fast commit fields and then call __fc_track_fn() with
+ * update = 0. If we have already been called after a full commit,
+ * we pass update = 1. Based on that, the track function can
+ * determine if it needs to track a field for the first time
+ * or if it needs to just update the previously tracked value.
+ */
+static int __ext4_fc_track_template(
+	struct inode *inode,
+	int (*__fc_track_fn)(struct inode *, void *, bool),
+	void *args)
+{
+	tid_t running_txn_tid = get_running_txn_tid(inode->i_sb);
+	bool update = false;
+	struct ext4_inode_info *ei = EXT4_I(inode);
+	int ret, commit;
+
+	if (!test_opt2(inode->i_sb, JOURNAL_FAST_COMMIT) ||
+	    (EXT4_SB(inode->i_sb)->s_mount_state & EXT4_FC_REPLAY))
+		return -EOPNOTSUPP;
+
+	write_lock(&ei->i_fc_lock);
+	if (running_txn_tid == ei->i_fc_tid) {
+		if (!ext4_test_inode_state(inode, EXT4_STATE_FC_ELIGIBLE)) {
+			write_unlock(&ei->i_fc_lock);
+			return -EINVAL;
+		}
+		update = true;
+	} else {
+		ext4_reset_inode_fc_info(inode);
+		ei->i_fc_tid = running_txn_tid;
+		atomic_set(&ei->i_fc_subtid,
+			   atomic_read(&EXT4_SB(inode->i_sb)->s_fc_subtid));
+		ext4_set_inode_state(inode, EXT4_STATE_FC_ELIGIBLE);
+	}
+	ret = __fc_track_fn(inode, args, update);
+	write_unlock(&ei->i_fc_lock);
+
+	ext4_fc_enqueue_inode(inode);
+
+	atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
+
+	return ret;
+}
+
+struct __ext4_dentry_update_args {
+	struct dentry *dentry;
+	int op;
+};
+
+static int __ext4_dentry_update(struct inode *inode, void *arg, bool update)
+{
+	struct ext4_fc_dentry_update *node;
+	struct ext4_inode_info *ei = EXT4_I(inode);
+	struct __ext4_dentry_update_args *dentry_update =
+		(struct __ext4_dentry_update_args *)arg;
+	struct dentry *dentry = dentry_update->dentry;
+	u32 crc;
+	u8 *pmem_addr;
+
+
+	write_unlock(&ei->i_fc_lock);
+	node = kmem_cache_alloc(ext4_fc_dentry_cachep, GFP_NOFS);
+	if (!node) {
+		ext4_fc_disable(inode->i_sb, EXT4_FC_REASON_MEM);
+		write_lock(&ei->i_fc_lock);
+		return -ENOMEM;
+	}
+
+	node->fcd_delete = 0;
+	node->fcd_op = dentry_update->op;
+	node->fcd_parent = dentry->d_parent->d_inode->i_ino;
+	node->fcd_ino = inode->i_ino;
+	if (dentry->d_name.len > DNAME_INLINE_LEN) {
+		node->fcd_name.name = kmalloc(dentry->d_name.len + 1,
+						GFP_KERNEL);
+		if (!node->fcd_iname) {
+			kmem_cache_free(ext4_fc_dentry_cachep, node);
+			return -ENOMEM;
+		}
+		memcpy((u8 *)node->fcd_name.name, dentry->d_name.name,
+			dentry->d_name.len);
+	} else {
+		memcpy(node->fcd_iname, dentry->d_name.name,
+			dentry->d_name.len);
+		node->fcd_name.name = node->fcd_iname;
+	}
+	node->fcd_name.len = dentry->d_name.len;
+
+	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC)) {
+		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, sizeof(struct ext4_fc_dentry_update), &crc);
+		if (pmem_addr == NULL) {
+			atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
+			kmem_cache_free(ext4_fc_dentry_cachep, node);
+			write_lock(&ei->i_fc_lock);
+			return 0;
+		}
+
+		ext4_fc_memcpy(inode->i_sb, pmem_addr, node, sizeof(*node), &crc);
+		kmem_cache_free(ext4_fc_dentry_cachep, node);
+		write_lock(&ei->i_fc_lock);
+		return 0;
+	}
+
+	spin_lock(&EXT4_SB(inode->i_sb)->s_fc_lock);
+	if (EXT4_SB(inode->i_sb)->s_fc_q_locked)
+		list_add_tail(&node->fcd_list,
+			      &EXT4_SB(inode->i_sb)->s_fc_staging_dentry_q);
+	else
+		list_add_tail(&node->fcd_list,
+			      &EXT4_SB(inode->i_sb)->s_fc_dentry_q);
+
+	spin_unlock(&EXT4_SB(inode->i_sb)->s_fc_lock);
+	write_lock(&ei->i_fc_lock);
+
+	return 0;
+}
+
+void ext4_fc_track_unlink(struct inode *inode, struct dentry *dentry)
+{
+	struct __ext4_dentry_update_args args;
+	int ret;
+
+	args.dentry = dentry;
+	args.op = EXT4_FC_TAG_DEL_DENTRY;
+
+	ret = __ext4_fc_track_template(inode, __ext4_dentry_update,
+				       (void *)&args);
+	trace_ext4_fc_track_unlink(inode, dentry, ret);
+}
+
+void ext4_fc_track_link(struct inode *inode, struct dentry *dentry)
+{
+	struct __ext4_dentry_update_args args;
+	int ret;
+
+	args.dentry = dentry;
+	args.op = EXT4_FC_TAG_ADD_DENTRY;
+
+	ret = __ext4_fc_track_template(inode, __ext4_dentry_update,
+				       (void *)&args);
+	trace_ext4_fc_track_link(inode, dentry, ret);
+}
+
+void ext4_fc_track_create(struct inode *inode, struct dentry *dentry)
+{
+	struct __ext4_dentry_update_args args;
+	int ret;
+
+	args.dentry = dentry;
+	args.op = EXT4_FC_TAG_CREAT_DENTRY;
+
+	ret = __ext4_fc_track_template(inode, __ext4_dentry_update,
+				       (void *)&args);
+	trace_ext4_fc_track_create(inode, dentry, ret);
+}
+
+static int __ext4_fc_add_inode(struct inode *inode, void *arg, bool update)
+{
+	struct ext4_inode_info *ei = EXT4_I(inode);
+	u32 crc;
+	struct pass_to_pmem {
+		struct ext4_extent pmem_ex;
+		int ino;
+	}pass_to_pm;
+	u8 *pmem_addr;
+
+	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC)) {
+		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, sizeof(pass_to_pm), &crc);
+		if (pmem_addr == NULL) {
+			atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
+			return 0;
+		}
+
+		pass_to_pm.pmem_ex.ee_block = cpu_to_le32((i_size_read(inode) - 1) >> inode->i_blkbits);
+		pass_to_pm.pmem_ex.ee_len = 0;
+		pass_to_pm.ino = inode->i_ino;
+		ext4_fc_memcpy(inode->i_sb, pmem_addr, &pass_to_pm, sizeof(pass_to_pm), &crc);
+		return 0;
+	}
+
+	if (update)
+		return -EEXIST;
+
+	ei->i_fc_lblk_start = (i_size_read(inode) - 1) >> inode->i_blkbits;
+	ei->i_fc_lblk_end = (i_size_read(inode) - 1) >> inode->i_blkbits;
+
+	return 0;
+}
+
+void ext4_fc_track_inode(struct inode *inode)
+{
+	int ret;
+
+	ret = __ext4_fc_track_template(inode, __ext4_fc_add_inode, NULL);
+	trace_ext4_fc_track_inode(inode, ret);
+}
+
+struct __ext4_fc_track_range_args {
+	ext4_lblk_t start, end;
+};
+
+#define MIN(__a, __b)  ((__a) < (__b) ? (__a) : (__b))
+#define MAX(__a, __b)  ((__a) > (__b) ? (__a) : (__b))
+
+int __ext4_fc_track_range(struct inode *inode, void *arg, bool update)
+{
+	struct ext4_inode_info *ei = EXT4_I(inode);
+	struct __ext4_fc_track_range_args *__arg =
+		(struct __ext4_fc_track_range_args *)arg;
+	u32 crc;
+	struct pass_to_pmem {
+		struct ext4_extent pmem_ex;
+		int ino;
+	}pass_to_pm;
+	u8 *pmem_addr;
+
+	if (inode->i_ino < EXT4_FIRST_INO(inode->i_sb)) {
+		ext4_debug("Special inode %ld being modified\n", inode->i_ino);
+		return -ECANCELED;
+	}
+
+	if (update) {
+		ei->i_fc_lblk_start = MIN(ei->i_fc_lblk_start, __arg->start);
+		ei->i_fc_lblk_end = MAX(ei->i_fc_lblk_end, __arg->end);
+	} else {
+		ei->i_fc_lblk_start = __arg->start;
+		ei->i_fc_lblk_end = __arg->end;
+	}
+
+	if (test_opt2(inode->i_sb, JOURNAL_FC_SYNC)) {
+		pmem_addr = ext4_alloc_fc_bytes(inode->i_sb, sizeof(pass_to_pm), &crc);
+		if (pmem_addr == NULL) {
+			atomic_inc(&EXT4_SB(inode->i_sb)->s_fc_track_calls);
+			return 0;
+		}
+
+		pass_to_pm.pmem_ex.ee_block = cpu_to_le32(ei->i_fc_lblk_start);
+		pass_to_pm.pmem_ex.ee_len = cpu_to_le32(ei->i_fc_lblk_end - ei->i_fc_lblk_start + 1);
+		pass_to_pm.ino = inode->i_ino;
+		ext4_fc_memcpy(inode->i_sb, pmem_addr, &pass_to_pm, sizeof(pass_to_pm), &crc);
+		return 0;
+	}
+
+	return 0;
+}
+
+void ext4_fc_track_range(struct inode *inode, ext4_lblk_t start,
+			 ext4_lblk_t end)
+{
+	struct __ext4_fc_track_range_args args;
+	int ret;
+
+	args.start = start;
+	args.end = end;
+
+	ret = __ext4_fc_track_template(inode,
+					__ext4_fc_track_range, &args);
+
+	trace_ext4_fc_track_range(inode, start, end, ret);
+}
 
 static int fc_write_tail(struct super_block *sb, u32 crc)
 {
+	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	struct ext4_fc_tl tl;
 	struct ext4_fc_tail tail;
-	u32 seq = atomic_inc_return(&EXT4_SB(sb)->s_fc_seq);
+	u32 seq = atomic_inc_return(&sbi->s_fc_seq);
+	int off = sbi->s_fc_bytes % sbi->s_journal->j_blocksize;
 	u8 *dst;
+	int ret;
 
 	dst = ext4_alloc_fc_bytes(sb, sizeof(tl) + sizeof(tail), &crc);
 	if (!dst)
 		return -ENOSPC;
 
 	tl.fc_tag = cpu_to_le16(EXT4_FC_TAG_TAIL);
-	tl.fc_len = cpu_to_le16(sizeof(struct ext4_fc_tail));
-	tail.fc_tid = cpu_to_le32(EXT4_SB(sb)->s_journal->
+	tl.fc_len = cpu_to_le16(sbi->s_journal->j_blocksize - off - 1 + sizeof(struct ext4_fc_tail));
+	sbi->s_fc_bytes = ((sbi->s_fc_bytes / sbi->s_journal->j_blocksize + 1) *
+			   sbi->s_journal->j_blocksize);
+	tail.fc_tid = cpu_to_le32(sbi->s_journal->
 				  j_running_transaction->t_tid);
 	tail.fc_seq = cpu_to_le32(seq);
 	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), &crc);
@@ -811,7 +889,10 @@ static int fc_write_tail(struct super_block *sb, u32 crc)
 	ext4_fc_memcpy(sb, dst + sizeof(tl) + sizeof(tail.fc_tid), &tail.fc_seq, sizeof(tail.fc_seq), &crc);
 	tail.fc_crc = cpu_to_le32(crc);
 	ext4_fc_memcpy(sb, dst + sizeof(tl) + sizeof(tail.fc_tid) + sizeof(tail.fc_seq), &tail.fc_crc, sizeof(tail.fc_crc), NULL);
-	return 0;
+	submit_fc_bh(sbi->s_fc_bh);
+	ret = jbd2_map_fc_buf(sbi->s_journal, &sbi->s_fc_bh);
+
+	return ret;
 }
 
 /*
@@ -1127,6 +1208,11 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal, int full_commit)
 	struct ext4_fc_dentry_update *fc_dentry;
 	struct list_head *pos, *n;
 
+	if (test_opt2(sb, JOURNAL_FC_SYNC)) {
+		atomic_set(&sbi->s_fc_track_calls, 0);
+		return;
+	}
+
 	if (sbi->s_fc_bh) {
 		brelse(sbi->s_fc_bh);
 		sbi->s_fc_bh = NULL;
@@ -1281,6 +1367,10 @@ int ext4_fc_async_commit_inode(journal_t *journal, tid_t commit_tid,
 	start_jiffies = jiffies;
 
 	if (subtid < atomic_read(&sbi->s_fc_subtid))
+		return 0;
+
+	if (test_opt2(sb, JOURNAL_FSYNC_NOOP) ||
+	    test_opt2(sb, JOURNAL_FC_SYNC))
 		return 0;
 
 	if (!test_opt2(sb, JOURNAL_FAST_COMMIT) ||
