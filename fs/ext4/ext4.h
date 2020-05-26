@@ -1652,8 +1652,8 @@ struct ext4_sb_info {
 	struct list_head s_fc_q;	/* Inodes staged for fast commit
 					 * that have data changes in them.
 					 */
-	unsigned long fc_journal_start; /* This marks the start of FC Journal */
-	atomic64_t fc_journal_valid_tail; /* This is the volatile tail */
+	unsigned long fc_journal_start[2]; /* This marks the start of FC Journal */
+	atomic64_t fc_journal_valid_tail[2]; /* This is the volatile tail */
 
 	/* Ext4 fast commit stuff */
 	int s_fc_q_locked;

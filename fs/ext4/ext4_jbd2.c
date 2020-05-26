@@ -509,10 +509,21 @@ u8 *__ext4_alloc_fc_bytes_pmem(struct super_block *sb, int len, u32 *crc)
 	unsigned long pmem_end_addr;
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	loff_t offset = 0;
+	int num_cores = 96;
+	int cur_core = 0;
+	int cur_numa_node = 0;
 
-	pmem_end_addr = sbi->fc_journal_start + EXT4_NUM_FC_BLKS * sb->s_blocksize;
-	offset = atomic64_fetch_add(len, &(sbi->fc_journal_valid_tail));
-	pmem_kaddr = sbi->fc_journal_start + offset;
+	/* Check the CPU core of thread, pass address accordingly */
+	cur_core = smp_processor_id() % num_cores;
+	if (cur_core < 24 || (cur_core >= 48 && cur_core < 72)) {
+		cur_numa_node = 0;
+	} else {
+		cur_numa_node = 1;
+	}
+
+	pmem_end_addr = sbi->fc_journal_start[cur_numa_node] + EXT4_NUM_FC_BLKS * sb->s_blocksize;
+	offset = atomic64_fetch_add(len, &(sbi->fc_journal_valid_tail[cur_numa_node]));
+	pmem_kaddr = sbi->fc_journal_start[cur_numa_node] + offset;
 
 	if (pmem_kaddr + len >= pmem_end_addr) {
 		return (u8 *) NULL;
@@ -1228,8 +1239,10 @@ static void ext4_journal_fc_cleanup_cb(journal_t *journal, int full_commit)
 	struct list_head *pos, *n;
 
 	if (full_commit) {
-		if (test_opt2(sb, JOURNAL_FC_PMEM))
-			atomic64_set(&(sbi->fc_journal_valid_tail), 0);
+		if (test_opt2(sb, JOURNAL_FC_PMEM)) {
+			atomic64_set(&(sbi->fc_journal_valid_tail[0]), 0);
+			atomic64_set(&(sbi->fc_journal_valid_tail[1]), 0);
+		}
 		atomic_set(&sbi->s_fc_seq, 0);
 	}
 
@@ -1480,6 +1493,9 @@ void ext4_init_fast_commit(struct super_block *sb, journal_t *journal)
 	int ret;
 	struct dax_device *dax_dev = NULL;
 	pfn_t __pfn_t;
+	int node_0_block = 2064384;
+	int node_1_block = 6258688;
+
 
 	size = EXT4_NUM_FC_BLKS * PAGE_SIZE;
 
@@ -1499,9 +1515,9 @@ void ext4_init_fast_commit(struct super_block *sb, journal_t *journal)
 
 	if (test_opt2(sb, JOURNAL_FC_PMEM)) {
 
-		jbd2_journal_bmap(journal, journal->j_first_fc, &pblock);
+		//jbd2_journal_bmap(journal, journal->j_first_fc, &pblock);
 
-		sector = pblock << 3;
+		sector = node_0_block << 3;
 
 		dax_dev = fs_dax_get_by_host(sb->s_bdev->bd_disk->disk_name);
 		BUG_ON(dax_dev == NULL);
@@ -1513,11 +1529,27 @@ void ext4_init_fast_commit(struct super_block *sb, journal_t *journal)
 					    &kaddr, &__pfn_t);
 		BUG_ON(map_len < 0);
 
-		sbi->fc_journal_start = (unsigned long) kaddr;
-		atomic64_set(&(sbi->fc_journal_valid_tail), 0);
+		sbi->fc_journal_start[0] = (unsigned long) kaddr;
+		atomic64_set(&(sbi->fc_journal_valid_tail[0]), 0);
 
-		printk(KERN_INFO "%s: Journal start = 0x%lx. Tail pointer = %ld\n",
-		       __func__, sbi->fc_journal_start, sbi->fc_journal_valid_tail.counter);
+		sector = node_1_block << 3;
+
+		dax_dev = fs_dax_get_by_host(sb->s_bdev->bd_disk->disk_name);
+		BUG_ON(dax_dev == NULL);
+
+		ret = bdev_dax_pgoff(sb->s_bdev, sector, size, &pgoff);
+		BUG_ON(ret != 0);
+
+		map_len = dax_direct_access(dax_dev, pgoff, PHYS_PFN(size),
+					    &kaddr, &__pfn_t);
+		BUG_ON(map_len < 0);
+
+		sbi->fc_journal_start[1] = (unsigned long) kaddr;
+		atomic64_set(&(sbi->fc_journal_valid_tail[1]), 0);
+
+		printk(KERN_INFO "%s: Journal 0 start = 0x%lx. Journal 1 start = 0x%lx. Tail 0 pointer = %ld. Tail 1 pointer = %ld\n",
+		       __func__, sbi->fc_journal_start[0], sbi->fc_journal_start[1],
+		       sbi->fc_journal_valid_tail[0].counter, sbi->fc_journal_valid_tail[1].counter);
 	}
 }
 
