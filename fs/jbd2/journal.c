@@ -65,6 +65,7 @@ EXPORT_SYMBOL(jbd2_start_async_fc_wait);
 EXPORT_SYMBOL(jbd2_init_fast_commit);
 EXPORT_SYMBOL(jbd2_start_async_fc_nowait);
 EXPORT_SYMBOL(jbd2_stop_async_fc);
+EXPORT_SYMBOL(jbd2_stop_async_fc_do_commit);
 EXPORT_SYMBOL(jbd2_journal_bmap);
 EXPORT_SYMBOL(jbd2_journal_lock_updates);
 EXPORT_SYMBOL(jbd2_journal_unlock_updates);
