@@ -154,6 +154,7 @@ typedef struct timespec timing_t;
 	Countstats[name]++; \
 	}
 
+
 /* Function Prototypes */
 extern void pmfs_error_mng(struct super_block *sb, const char *fmt, ...);
 
@@ -299,6 +300,24 @@ struct pmfs_sb_info {
 	struct mutex s_truncate_lock;
 };
 
+struct pmfs_range_node {
+	struct rb_node node;
+	struct vm_area_struct *vma;
+	unsigned long mmap_entry;
+	union {
+		/* Block, inode */
+		struct {
+			unsigned long range_low;
+			unsigned long range_high;
+		};
+		/* Dir node */
+		struct {
+			unsigned long hash;
+			void *direntry;
+		};
+	};
+};
+
 static inline struct pmfs_sb_info *PMFS_SB(struct super_block *sb)
 {
 	return sb->s_fs_info;
@@ -416,6 +435,18 @@ static inline void memset_nt(void *dest, uint32_t dword, size_t length)
 		: "=D"(dummy1), "=d" (dummy2) : "D" (dest), "a" (qword), "d" (length) : "memory", "rcx");
 }
 
+static inline unsigned long BKDRHash(const char *str, int length)
+{
+	unsigned int seed = 131;
+	unsigned long hash = 0;
+	int i;
+
+	for (i = 0; i < length; i++)
+		hash = hash * seed + (*str++);
+
+	return hash;
+}
+
 static inline u64
 pmfs_get_block_off(struct super_block *sb, unsigned long blocknr,
 		    unsigned short btype)
@@ -457,6 +488,7 @@ static inline int pmfs_is_mounting(struct super_block *sb)
 }
 
 #include "wprotect.h"
+#include "balloc.h"
 
 /*
  * Inodes and files operations
@@ -464,6 +496,12 @@ static inline int pmfs_is_mounting(struct super_block *sb)
 
 /* dir.c */
 extern const struct file_operations pmfs_dir_operations;
+int pmfs_insert_dir_tree(struct super_block *sb,
+			 struct pmfs_inode_info_header *sih, const char *name,
+			 int namelen, struct pmfs_direntry *direntry);
+int pmfs_remove_dir_tree(struct super_block *sb,
+			 struct pmfs_inode_info_header *sih, const char *name, int namelen,
+			 struct pmfs_direntry **create_dentry);
 
 /* file.c */
 extern const struct inode_operations pmfs_file_inode_operations;
@@ -474,6 +512,8 @@ int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync);
 extern const struct address_space_operations pmfs_aops_xip;
 
 /* bbuild.c */
+void pmfs_init_header(struct super_block *sb,
+		      struct pmfs_inode_info_header *sih, u16 i_mode);
 void pmfs_save_blocknode_mappings(struct super_block *sb);
 
 /* namei.c */

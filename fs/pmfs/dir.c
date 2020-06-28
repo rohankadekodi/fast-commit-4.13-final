@@ -25,6 +25,116 @@
 #define DT2IF(dt) (((dt) << 12) & S_IFMT)
 #define IF2DT(sif) (((sif) & S_IFMT) >> 12)
 
+struct pmfs_direntry *pmfs_find_dentry(struct super_block *sb,
+				       struct pmfs_inode *pi, struct inode *inode,
+				       const char *name, unsigned long name_len)
+{
+	struct pmfs_inode_info *si = PMFS_I(inode);
+	struct pmfs_inode_info_header *sih = &si->header;
+	struct pmfs_direntry *direntry = NULL;
+	struct pmfs_range_node *ret_node = NULL;
+	unsigned long hash;
+	int found = 0;
+
+	hash = BKDRHash(name, name_len);
+
+	found = pmfs_find_range_node(&sih->rb_tree, hash,
+				     &ret_node);
+	if (found == 1 && hash == ret_node->hash)
+		direntry = ret_node->direntry;
+
+	return direntry;
+}
+
+int pmfs_insert_dir_tree(struct super_block *sb,
+			 struct pmfs_inode_info_header *sih, const char *name,
+			 int namelen, struct pmfs_direntry *direntry)
+{
+	struct pmfs_range_node *node = NULL;
+	unsigned long hash;
+	int ret;
+
+	hash = BKDRHash(name, namelen);
+	//pmfs_dbg("%s: insert %s hash %lu\n", __func__, name, hash);
+
+	/* FIXME: hash collision ignored here */
+	node = pmfs_alloc_dir_node(sb);
+	if (!node)
+		return -ENOMEM;
+
+	node->hash = hash;
+	node->direntry = direntry;
+	ret = pmfs_insert_range_node(&sih->rb_tree, node);
+	if (ret) {
+		pmfs_free_dir_node(node);
+		pmfs_dbg("%s ERROR %d: %s\n", __func__, ret, name);
+	}
+
+	return ret;
+}
+
+static int pmfs_check_dentry_match(struct super_block *sb,
+	struct pmfs_direntry *dentry, const char *name, int namelen)
+{
+	if (dentry->name_len != namelen)
+		return -EINVAL;
+
+	return strncmp(dentry->name, name, namelen);
+}
+
+int pmfs_remove_dir_tree(struct super_block *sb,
+	struct pmfs_inode_info_header *sih, const char *name, int namelen,
+	struct pmfs_direntry **create_dentry)
+{
+	struct pmfs_direntry *entry;
+	struct pmfs_range_node *ret_node = NULL;
+	unsigned long hash;
+	int found = 0;
+
+	hash = BKDRHash(name, namelen);
+	found = pmfs_find_range_node(&sih->rb_tree, hash,
+				     &ret_node);
+	if (found == 0) {
+		pmfs_dbg("%s target not found: %s, length %d, "
+				"hash %lu\n", __func__, name, namelen, hash);
+		return -EINVAL;
+	}
+
+	entry = ret_node->direntry;
+	rb_erase(&ret_node->node, &sih->rb_tree);
+	pmfs_free_dir_node(ret_node);
+
+	if (!entry) {
+		pmfs_dbg("%s ERROR: %s, length %d, hash %lu\n",
+			 __func__, name, namelen, hash);
+		return -EINVAL;
+	}
+
+	if (entry->ino == 0 ||
+	    pmfs_check_dentry_match(sb, entry, name, namelen)) {
+		pmfs_dbg("%s dentry not match: %s, length %d, hash %lu\n",
+			 __func__, name, namelen, hash);
+		/* for debug information, still allow access to nvmm */
+		pmfs_dbg("dentry: inode %llu, name %s, namelen %u, rec len %u\n",
+			 le64_to_cpu(entry->ino),
+			 entry->name, entry->name_len,
+			 le16_to_cpu(entry->de_len));
+		return -EINVAL;
+	}
+
+	if (create_dentry)
+		*create_dentry = entry;
+
+	return 0;
+}
+
+void pmfs_delete_dir_tree(struct super_block *sb,
+			  struct pmfs_inode_info_header *sih)
+{
+	pmfs_dbg("%s: delete dir %lu\n", __func__, sih->ino);
+	pmfs_destroy_range_node_tree(sb, &sih->rb_tree);
+}
+
 static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 	struct dentry *dentry, struct inode *inode,
 	struct pmfs_direntry *de, u8 *blk_base,  struct pmfs_inode *pidir)
@@ -35,7 +145,14 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 	unsigned short reclen;
 	int nlen, rlen;
 	char *top;
+	struct pmfs_inode_info *si = PMFS_I(dir);
+	struct pmfs_inode_info_header *sih = &si->header;
 
+	/*
+	 * This portion sweeps through all the directory
+	 * entries to find a free slot to insert this new
+	 * directory entry. Needs to be optimized
+	 */
 	reclen = PMFS_DIR_REC_LEN(namelen);
 	if (!de) {
 		de = (struct pmfs_direntry *)blk_base;
@@ -101,6 +218,8 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 	pidir->i_mtime = cpu_to_le32(dir->i_mtime.tv_sec);
 	pidir->i_ctime = cpu_to_le32(dir->i_ctime.tv_sec);
 	pmfs_memlock_inode(dir->i_sb, pidir);
+
+	pmfs_insert_dir_tree(dir->i_sb, sih, name, namelen, de);
 	return 0;
 }
 
@@ -176,9 +295,22 @@ int pmfs_remove_entry(pmfs_transaction_t *trans, struct dentry *de,
 	int retval = -EINVAL;
 	unsigned long blocks, block;
 	char *blk_base = NULL;
+	struct pmfs_inode_info *si = PMFS_I(dir);
+	struct pmfs_inode_info_header *sih = &si->header;
 
 	if (!de->d_name.len)
 		return -EINVAL;
+
+	retval = pmfs_remove_dir_tree(sb, sih, entry->name, entry->len,
+				      &res_entry);
+
+	pmfs_add_logentry(sb, trans, &res_entry->ino,
+			  sizeof(res_entry->ino), LE_DATA);
+	pmfs_memunlock_block(sb, blk_base);
+	res_entry->ino = 0;
+	pmfs_memlock_block(sb, blk_base);
+
+	/*
 
 	blocks = dir->i_size >> sb->s_blocksize_bits;
 
@@ -210,6 +342,9 @@ int pmfs_remove_entry(pmfs_transaction_t *trans, struct dentry *de,
 		res_entry->ino = 0;
 		pmfs_memlock_block(sb, blk_base);
 	}
+
+	*/
+
 	/*dir->i_version++; */
 	dir->i_ctime = dir->i_mtime = current_time(dir);
 

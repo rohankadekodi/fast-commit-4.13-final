@@ -42,6 +42,96 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 	list_add(&blknode->link, &sbi->block_inuse_head);
 }
 
+static inline int pmfs_rbtree_compare_rangenode(struct pmfs_range_node *curr,
+						unsigned long key)
+{
+	if (key < curr->hash)
+		return -1;
+	if (key > curr->hash)
+		return 1;
+
+	return 0;
+}
+
+int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
+			 struct pmfs_range_node **ret_node)
+{
+	struct pmfs_range_node *curr = NULL;
+	struct rb_node *temp;
+	int compVal;
+	int ret = 0;
+
+	temp = tree->rb_node;
+
+	while (temp) {
+		curr = container_of(temp, struct pmfs_range_node, node);
+		compVal = pmfs_rbtree_compare_rangenode(curr, key);
+
+		if (compVal == -1) {
+			temp = temp->rb_left;
+		} else if (compVal == 1) {
+			temp = temp->rb_right;
+		} else {
+			ret = -1;
+			break;
+		}
+	}
+
+	*ret_node = curr;
+	return ret;
+}
+
+int pmfs_insert_range_node(struct rb_root *tree,
+	struct pmfs_range_node *new_node)
+{
+	struct pmfs_range_node *curr;
+	struct rb_node **temp, *parent;
+	int compVal;
+
+	temp = &(tree->rb_node);
+	parent = NULL;
+
+	while (*temp) {
+		curr = container_of(*temp, struct pmfs_range_node, node);
+		compVal = pmfs_rbtree_compare_rangenode(curr,
+					new_node->range_low);
+		parent = *temp;
+
+		if (compVal == -1) {
+			temp = &((*temp)->rb_left);
+		} else if (compVal == 1) {
+			temp = &((*temp)->rb_right);
+		} else {
+			pmfs_dbg("%s: entry %lu - %lu already exists: "
+				"%lu - %lu\n",
+				 __func__, new_node->range_low,
+				new_node->range_high, curr->range_low,
+				curr->range_high);
+			return -EINVAL;
+		}
+	}
+
+	rb_link_node(&new_node->node, parent, temp);
+	rb_insert_color(&new_node->node, tree);
+
+	return 0;
+}
+
+void pmfs_destroy_range_node_tree(struct super_block *sb,
+				  struct rb_root *tree)
+{
+	struct pmfs_range_node *curr;
+	struct rb_node *temp;
+
+	temp = rb_first(tree);
+	while (temp) {
+		curr = container_of(temp, struct pmfs_range_node, node);
+		temp = rb_next(temp);
+		rb_erase(&curr->node, tree);
+		pmfs_free_range_node(curr);
+	}
+}
+
 static struct pmfs_blocknode *pmfs_next_blocknode(struct pmfs_blocknode *i,
 						  struct list_head *head)
 {

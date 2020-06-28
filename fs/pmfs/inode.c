@@ -980,6 +980,9 @@ struct inode *pmfs_iget(struct super_block *sb, unsigned long ino)
 	struct inode *inode;
 	struct pmfs_inode *pi;
 	int err;
+	struct pmfs_inode_info *si;
+	struct pmfs_inode_info_header *sih = NULL;
+
 
 	inode = iget_locked(sb, ino);
 	if (unlikely(!inode))
@@ -992,6 +995,7 @@ struct inode *pmfs_iget(struct super_block *sb, unsigned long ino)
 		err = -EACCES;
 		goto fail;
 	}
+
 	err = pmfs_read_inode(inode, pi);
 	if (unlikely(err))
 		goto fail;
@@ -1109,6 +1113,8 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	int i, errval;
 	u32 num_inodes, inodes_per_block;
 	ino_t ino = 0;
+	struct pmfs_inode_info *si;
+	struct pmfs_inode_info_header *sih = NULL;
 
 	sb = dir->i_sb;
 	sbi = (struct pmfs_sb_info *)sb->s_fs_info;
@@ -1192,13 +1198,21 @@ retry:
 
 	pmfs_update_inode(inode, pi);
 
+	si = PMFS_I(inode);
+	sih = &si->header;
+	pmfs_init_header(sb, sih, inode->i_mode);
+	sih->ino = ino;
+	sih->i_blk_type = PMFS_DEFAULT_BLOCK_TYPE;
+
 	pmfs_set_inode_flags(inode, pi);
+	sih->i_flags = le32_to_cpu(pi->i_flags);
 
 	if (insert_inode_locked(inode) < 0) {
 		pmfs_err(sb, "pmfs_new_inode failed ino %lx\n", inode->i_ino);
 		errval = -EINVAL;
 		goto fail1;
 	}
+
 
 	return inode;
 fail1:

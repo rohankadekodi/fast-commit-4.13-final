@@ -48,6 +48,8 @@ static const struct export_operations pmfs_export_ops;
 static struct kmem_cache *pmfs_inode_cachep;
 static struct kmem_cache *pmfs_blocknode_cachep;
 static struct kmem_cache *pmfs_transaction_cachep;
+static struct kmem_cache *pmfs_range_node_cachep;
+
 /* FIXME: should the following variable be one per PMFS instance? */
 unsigned int pmfs_dbgmask = 0;
 
@@ -892,6 +894,16 @@ inline void pmfs_free_transaction(pmfs_transaction_t *trans)
 	kmem_cache_free(pmfs_transaction_cachep, trans);
 }
 
+void pmfs_free_range_node(struct pmfs_range_node *node)
+{
+	kmem_cache_free(pmfs_range_node_cachep, node);
+}
+
+void pmfs_free_dir_node(struct pmfs_range_node *node)
+{
+	pmfs_free_range_node(node);
+}
+
 void __pmfs_free_blocknode(struct pmfs_blocknode *bnode)
 {
 	kmem_cache_free(pmfs_blocknode_cachep, bnode);
@@ -934,6 +946,20 @@ static struct inode *pmfs_alloc_inode(struct super_block *sb)
 	return &vi->vfs_inode;
 }
 
+struct pmfs_range_node *pmfs_alloc_range_node(struct super_block *sb)
+{
+	struct pmfs_range_node *p;
+
+	p = (struct pmfs_range_node *)
+		kmem_cache_zalloc(pmfs_range_node_cachep, GFP_NOFS);
+	return p;
+}
+
+struct pmfs_range_node *pmfs_alloc_dir_node(struct super_block *sb)
+{
+	return pmfs_alloc_range_node(sb);
+}
+
 static void pmfs_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
@@ -963,6 +989,17 @@ static int __init init_blocknode_cache(void)
 					0, (SLAB_RECLAIM_ACCOUNT |
                                         SLAB_MEM_SPREAD), NULL);
 	if (pmfs_blocknode_cachep == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+static int __init init_rangenode_cache(void)
+{
+	pmfs_range_node_cachep = kmem_cache_create("pmfs_range_node_cache",
+						   sizeof(struct pmfs_range_node),
+						   0, (SLAB_RECLAIM_ACCOUNT |
+						       SLAB_MEM_SPREAD), NULL);
+	if (pmfs_range_node_cachep == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -1095,6 +1132,10 @@ static int __init init_pmfs_fs(void)
 	int rc = 0;
 
 	rc = init_blocknode_cache();
+	if (rc)
+		return rc;
+
+	rc = init_rangenode_cache();
 	if (rc)
 		return rc;
 

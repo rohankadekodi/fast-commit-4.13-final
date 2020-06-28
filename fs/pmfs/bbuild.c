@@ -34,6 +34,19 @@ struct scan_bitmap {
 	unsigned long *bitmap_1G;
 };
 
+void pmfs_init_header(struct super_block *sb,
+		      struct pmfs_inode_info_header *sih, u16 i_mode)
+{
+	sih->i_size = 0;
+	sih->ino = 0;
+	sih->i_blocks = 0;
+	sih->rb_tree = RB_ROOT;
+	sih->i_mode = i_mode;
+	sih->i_flags = 0;
+	sih->i_blk_type = PMFS_DEFAULT_BLOCK_TYPE;
+}
+
+
 static void pmfs_clear_datablock_inode(struct super_block *sb)
 {
 	struct pmfs_inode *pi =  pmfs_get_inode(sb, PMFS_BLOCKNODE_IN0);

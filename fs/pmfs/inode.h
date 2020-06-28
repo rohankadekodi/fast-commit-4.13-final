@@ -44,7 +44,6 @@ struct pmfs_inode {
  * PMFS-specific inode state kept in DRAM
  */
 struct pmfs_inode_info_header {
-	struct radix_tree_root tree;
 	struct rb_root rb_tree;         /* RB tree for directory */
 	unsigned short i_mode;
 	unsigned int i_flags;
@@ -52,7 +51,6 @@ struct pmfs_inode_info_header {
 	unsigned long i_blocks;
 	unsigned long ino;
 	unsigned long pi_addr;
-	u64 last_dentry;                /* Last updated dentry */
 	u8 i_blk_type;
 };
 
