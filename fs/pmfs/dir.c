@@ -16,6 +16,7 @@
 #include <linux/fs.h>
 #include <linux/pagemap.h>
 #include "pmfs.h"
+#include "inode.h"
 
 /*
  *	Parent is locked.
@@ -299,7 +300,6 @@ const struct file_operations pmfs_dir_operations = {
 	.read		= generic_read_dir,
 	.iterate	= pmfs_readdir,
 	.fsync		= noop_fsync,
-	.fsync_opt      = noop_fsync,
 	.unlocked_ioctl = pmfs_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= pmfs_compat_ioctl,

@@ -18,6 +18,7 @@
 #include <asm/pgtable.h>
 #include "pmfs.h"
 #include "xip.h"
+#include "inode.h"
 
 static ssize_t
 do_xip_mapping_read(struct address_space *mapping,
@@ -90,13 +91,8 @@ do_xip_mapping_read(struct address_space *mapping,
 		 * pointers and the remaining count).
 		 */
 		PMFS_START_TIMING(memcpy_r_t, memcpy_time);
-		if (!zero) {
+		if (!zero)
 			left = __copy_to_user(buf+copied, xip_mem+offset, nr);
-			// Rohan adding read delay	
-#if CONFIG_LEDGER
-			perfmodel_add_delay(1, nr);
-#endif
-		}
 		else
 			left = __clear_user(buf + copied, nr);
 		PMFS_END_TIMING(memcpy_r_t, memcpy_time);
@@ -163,7 +159,7 @@ static inline size_t memcpy_to_nvmm(char *kmem, loff_t offset,
 	const char __user *buf, size_t bytes)
 {
 	size_t copied;
-	
+
 	if (support_clwb) {
 		copied = bytes - __copy_from_user(kmem + offset, buf, bytes);
 		pmfs_flush_buffer(kmem + offset, copied, 0);
@@ -171,11 +167,6 @@ static inline size_t memcpy_to_nvmm(char *kmem, loff_t offset,
 		copied = bytes - __copy_from_user_inatomic_nocache(kmem +
 						offset, buf, bytes);
 	}
-
-	// Rohan adding write delay
-#if CONFIG_LEDGER
-	perfmodel_add_delay(0, bytes);
-#endif
 
 	return copied;
 }
@@ -190,11 +181,8 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 	size_t      bytes;
 	ssize_t     written = 0;
 	struct pmfs_inode *pi;
-	timing_t memcpy_time, write_time;//, memcpy_to_pmem_time;
+	timing_t memcpy_time, write_time;
 
-	//if (*ppos == 0)
-	//	INIT_TIMING();
-		
 	PMFS_START_TIMING(internal_write_t, write_time);
 	pi = pmfs_get_inode(sb, inode->i_ino);
 	do {
@@ -216,16 +204,9 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 
 		PMFS_START_TIMING(memcpy_w_t, memcpy_time);
 		pmfs_xip_mem_protect(sb, xmem + offset, bytes, 1);
-
-		//START_TIMING(memcpy_to_pmem_t, memcpy_to_pmem_time);
-
 		copied = memcpy_to_nvmm((char *)xmem, offset, buf, bytes);
-
-		//END_TIMING(memcpy_to_pmem_t, memcpy_to_pmem_time);
-		//PRINT_TIMING();
-		
 		pmfs_xip_mem_protect(sb, xmem + offset, bytes, 0);
-		//PMFS_END_TIMING(memcpy_w_t, memcpy_time);
+		PMFS_END_TIMING(memcpy_w_t, memcpy_time);
 
 		/* if start or end dest address is not 8 byte aligned, 
 	 	 * __copy_from_user_inatomic_nocache uses cacheable instructions
@@ -253,10 +234,6 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
  	* No need to use i_size_read() here, the i_size
  	* cannot change under us because we hold i_mutex.
  	*/
-	/*
-	printk(KERN_INFO "%s: inode = %lu, size change due to append\n",
-	       __func__, inode->i_ino);
-	*/
 	if (pos > inode->i_size) {
 		i_size_write(inode, pos);
 		pmfs_update_isize(inode, pi);

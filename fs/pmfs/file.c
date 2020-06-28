@@ -23,6 +23,7 @@
 #include <asm/mman.h>
 #include "pmfs.h"
 #include "xip.h"
+#include "inode.h"
 
 static inline int pmfs_can_set_blocksize_hint(struct pmfs_inode *pi,
 					       loff_t new_size)
@@ -186,26 +187,15 @@ static loff_t pmfs_llseek(struct file *file, loff_t offset, int origin)
 int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	/* Sync from start to end[inclusive] */
-
 	struct address_space *mapping = file->f_mapping;
 	struct inode *inode = mapping->host;
 	loff_t isize;
 	timing_t fsync_time;
 
-	/*
-	printk(KERN_INFO "%s: START. inode = %lu, start = %lld, end = %lld, datasync = %d\n",
-	       __func__, inode->i_ino, start, end, datasync);
-	*/
-	
 	PMFS_START_TIMING(fsync_t, fsync_time);
 	/* if the file is not mmap'ed, there is no need to do clflushes */
-	if (mapping_mapped(mapping) == 0) {
-		/*
-		printk(KERN_INFO "%s: mapping is not mapped. Goto persist\n",
-		       __func__);
-		*/
+	if (mapping_mapped(mapping) == 0)
 		goto persist;
-	}
 
 	end += 1; /* end is inclusive. We like our indices normal please ! */
 
@@ -248,17 +238,16 @@ int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 		} else {
 			/* sparse files could have such holes */
 			pmfs_dbg_verbose("[%s:%d] : start(%llx), end(%llx),"
-					 " pgoff(%lx)\n", __func__, __LINE__, start, end, pgoff);
+			" pgoff(%lx)\n", __func__, __LINE__, start, end, pgoff);
 			break;
 		}
-	
+
 		start += nr_flush_bytes;
 	} while (start < end);
- persist:
+persist:
 	PERSISTENT_MARK();
 	PERSISTENT_BARRIER();
-	PMFS_END_TIMING(fsync_t, fsync_time); 
-
+	PMFS_END_TIMING(fsync_t, fsync_time);
 	return 0;
 }
 
@@ -341,7 +330,6 @@ const struct file_operations pmfs_xip_file_operations = {
 	.mmap			= pmfs_xip_file_mmap,
 	.open			= generic_file_open,
 	.fsync			= pmfs_fsync,
-	.fsync_opt              = pmfs_fsync,
 	.flush			= pmfs_flush,
 //	.get_unmapped_area	= pmfs_get_unmapped_area,
 	.unlocked_ioctl		= pmfs_ioctl,

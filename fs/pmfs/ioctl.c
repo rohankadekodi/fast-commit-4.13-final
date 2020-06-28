@@ -17,6 +17,7 @@
 #include <linux/compat.h>
 #include <linux/mount.h>
 #include "pmfs.h"
+#include "inode.h"
 
 #define	FS_PMFS_FSYNC	0xBCD0000E
 

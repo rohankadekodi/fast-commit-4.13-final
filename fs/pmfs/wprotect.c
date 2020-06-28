@@ -18,6 +18,7 @@
 #include <linux/mm.h>
 #include <linux/io.h>
 #include "pmfs.h"
+#include "inode.h"
 
 static inline void wprotect_disable(void)
 {

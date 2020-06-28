@@ -1,4 +1,5 @@
 #include "pmfs.h"
+#include "inode.h"
 
 const char *Timingstring[TIMING_NUM] = 
 {

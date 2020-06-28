@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include "pmfs.h"
+#include "inode.h"
 
 int __init test_pmfs_write(void)
 {

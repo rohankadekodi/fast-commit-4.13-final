@@ -16,6 +16,7 @@
 #include <linux/fs.h>
 #include <linux/namei.h>
 #include "pmfs.h"
+#include "inode.h"
 
 int pmfs_block_symlink(struct inode *inode, const char *symname, int len)
 {

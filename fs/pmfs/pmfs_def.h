@@ -20,16 +20,6 @@
 #include <linux/types.h>
 #include <linux/magic.h>
 
-/* Rohan start */
-/*
-#include <linux/kobject.h>
-#include <linux/cpufreq.h>
-#include <asm/fpu/api.h>
-*/
-//#include "nvmm_perfmodel.c"
-/* Rohan end */
-
-
 #define	PMFS_SUPER_MAGIC	0xEFFC
 
 /*
@@ -63,21 +53,6 @@
 #define PMFS_INODE_BITS   7
 
 #define PMFS_NAME_LEN 255
-
-/* Rohan start */
-
-/*
-#define _MAX_INT    0x7ffffff
-
-#define ENABLE_PERF_MODEL
-#define ENABLE_BANDWIDTH_MODEL
-
-#define BANDWIDTH_MONITOR_NS 10000
-#define SEC_TO_NS(x) (x * 1000000000UL)
-*/
-
-/* Rohan end */
-
 /*
  * Structure of a directory entry in PMFS.
  */
@@ -108,54 +83,6 @@ struct pmfs_direntry {
  * we should get pretty good coverage in testing.
  */
 #define PMFS_DEFAULT_BLOCK_TYPE PMFS_BLOCK_TYPE_4K
-
-/*
- * Structure of an inode in PMFS. Things to keep in mind when modifying it.
- * 1) Keep the inode size to within 96 bytes if possible. This is because
- *    a 64 byte log-entry can store 48 bytes of data and we would like
- *    to log an inode using only 2 log-entries
- * 2) root must be immediately after the qw containing height because we update
- *    root and height atomically using cmpxchg16b in pmfs_decrease_btree_height 
- * 3) i_size, i_ctime, and i_mtime must be in that order and i_size must be at
- *    16 byte aligned offset from the start of the inode. We use cmpxchg16b to
- *    update these three fields atomically.
- */
-struct pmfs_inode {
-	/* first 48 bytes */
-	__le16	i_rsvd;         /* reserved. used to be checksum */
-	u8	    height;         /* height of data b-tree; max 3 for now */
-	u8	    i_blk_type;     /* data block size this inode uses */
-	__le32	i_flags;            /* Inode flags */
-	__le64	root;               /* btree root. must be below qw w/ height */
-	__le64	i_size;             /* Size of data in bytes */
-	__le32	i_ctime;            /* Inode modification time */
-	__le32	i_mtime;            /* Inode b-tree Modification time */
-	__le32	i_dtime;            /* Deletion Time */
-	__le16	i_mode;             /* File mode */
-	__le16	i_links_count;      /* Links count */
-	__le64	i_blocks;           /* Blocks count */
-
-	/* second 48 bytes */
-	__le64	i_xattr;            /* Extended attribute block */
-	__le32	i_uid;              /* Owner Uid */
-	__le32	i_gid;              /* Group Id */
-	__le32	i_generation;       /* File version (for NFS) */
-	__le32	i_atime;            /* Access time */
-
-	struct {
-		__le32 rdev;    /* major/minor # */
-	} dev;              /* device inode */
-	__le32 padding;     /* pad to ensure truncate_item starts 8-byte aligned */
-};
-
-/* This is a per-inode structure and follows immediately after the 
- * struct pmfs_inode. It is used to implement the truncate linked list and is 
- * by pmfs_truncate_add(), pmfs_truncate_del(), and pmfs_recover_truncate_list()
- * functions to manage the truncate list */
-struct pmfs_inode_truncate_item {
-	__le64	i_truncatesize;     /* Size of truncated inode */
-	__le64  i_next_truncate;    /* inode num of the next truncated inode */
-};
 
 /*
  * #define PMFS_NAME_LEN (PMFS_INODE_SIZE - offsetof(struct pmfs_inode,
@@ -250,13 +177,7 @@ static inline bool arch_has_clwb(void)
 	return static_cpu_has(X86_FEATURE_CLWB);
 }
 
-static inline bool arch_has_clflushopt(void)
-{
-    return static_cpu_has(X86_FEATURE_CLFLUSHOPT);
-}
-
 extern int support_clwb;
-extern int support_clflushopt;
 extern int support_pcommit;
 
 #define _mm_clflush(addr)\
@@ -282,188 +203,23 @@ static inline void PERSISTENT_BARRIER(void)
 	}
 }
 
-/* Rohan NVM latency emulation */
-
-void perfmodel_add_delay(int read, size_t size);
-//#define NVM_LATENCY 100
-
-/*
-static uint64_t monitor_start = 0, monitor_end = 0, now = 0;
-atomic64_t bandwidth_consumption = ATOMIC_INIT(0);
-
-extern int nvm_perf_model;
-
-spinlock_t dax_nvm_spinlock;
-
-static uint32_t read_latency_ns = 150;
-static uint32_t wbarrier_latency_ns = 0;
-static uint32_t nvm_bandwidth = 8000;
-static uint32_t dram_bandwidth = 63000;
-static uint64_t cpu_freq_mhz = 3600;
-
-#define NS2CYCLE(__ns) (((__ns) * cpu_freq_mhz) / 1000LLU)
-#define CYCLE2NS(__cycles) (((__cycles) * 1000) / cpu_freq_mhz)
-
-static inline unsigned long long asm_rdtsc(void)
-{
-        unsigned hi, lo;
-        __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-        return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-}
-
-static inline unsigned long long asm_rdtscp(void)
-{
-        unsigned hi, lo;
-        __asm__ __volatile__ ("rdtscp" : "=a"(lo), "=d"(hi)::"rcx");
-        return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-}
-*/
-/* kernel floating point
- * http://yarchive.net/comp/linux/kernel_fp.html
- *  set CFLAGs with -mhard-float
- *
- *  in code.
- *      kernel_fpu_begin();
- *      ...
- *      kernel_fpu_end();
- */
-/*
-static inline void emulate_latency_ns(long long ns)
-{
-    uint64_t cycles, start, stop;
-
-    start = asm_rdtscp();
-    cycles = NS2CYCLE(ns);
-
-    do {
-*/  
-      /* RDTSC doesn't necessarily wait for previous instructions to complete
-         * so a serializing instruction is usually used to ensure previous
-         * instructions have completed. However, in our case this is a desirable
-         * property since we want to overlap the latency we emulate with the
-         * actual latency of the emulated instruction.
-         */
-/*
-        stop = asm_rdtscp();
-    } while (stop - start < cycles);
-}
-
-void perfmodel_add_delay(int read, size_t size)
-{
-#ifdef ENABLE_PERF_MODEL
-    uint32_t extra_latency;
-    uint32_t do_bandwidth_delay;
-
-    now = asm_rdtscp();
-
-    if (now >= monitor_end) {
-                monitor_start = now;
-                monitor_end = monitor_start + NS2CYCLE(BANDWIDTH_MONITOR_NS);
-                atomic64_set(&bandwidth_consumption, 0);
-        }
-
-        atomic64_add(size, &bandwidth_consumption);
-
-        if (atomic64_read(&bandwidth_consumption) >=
-                ((nvm_bandwidth << 20) / (SEC_TO_NS(1UL) / BANDWIDTH_MONITOR_NS)))
-        do_bandwidth_delay = 1;
-    else
-        do_bandwidth_delay = 0;
-#endif
-
-#ifdef ENABLE_PERF_MODEL
-    if (read) {
-        extra_latency = read_latency_ns;
-    } else
-        extra_latency = wbarrier_latency_ns;
-
-    // bandwidth delay for both read and write.
-    if (do_bandwidth_delay) {
-        // Due to the writeback cache, write does not have latency
-        // but it has bandwidth limit.
-        // The following is emulated delay when bandwidth is full
-        extra_latency += (int)size *
-            (1 - (float)(((float) nvm_bandwidth)/1000) /
-             (((float)dram_bandwidth)/1000)) / (((float)nvm_bandwidth)/1000);
-        // Bandwidth is enough, so no write delay.
-                spin_lock(&dax_nvm_spinlock);
-                emulate_latency_ns(extra_latency);
-                spin_unlock(&dax_nvm_spinlock);
-    } else
-                emulate_latency_ns(extra_latency);
-#endif
-
-    return;
-}
-*/
-
-/* [sekwonlee] NVM latency emulation ************************/
-/*
-#define NVM_LATENCY     100
-static unsigned long long nvmfs_cpu_freq_mhz = 3600;
-typedef uint64_t hrtime_t;
-
-#define NS2CYCLE(__ns) ((__ns) * nvmfs_cpu_freq_mhz / 1000LLU)
-
-static inline unsigned long long asm_rdtsc(void)
-{
-    unsigned hi, lo;
-    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((unsigned long long)lo)|(((unsigned long long)hi)<<32);
-}
-
-static inline void emulate_latency_ns(long long ns)
-{
-    hrtime_t cycles;
-    hrtime_t start;
-    hrtime_t stop;
-
-    start = asm_rdtsc();
-    cycles = NS2CYCLE(ns);
-
-    do {
-        stop = asm_rdtsc();
-    } while (stop - start < cycles);
-}
-*/
-/* [sekwonlee] *********************************************/
-
 static inline void pmfs_flush_buffer(void *buf, uint32_t len, bool fence)
 {
-    uint32_t i;
-    len = len + ((unsigned long)(buf) & (CACHELINE_SIZE - 1));
-    if (support_clwb) {
-        for (i = 0; i < len; i += CACHELINE_SIZE) {
-            _mm_clwb(buf + i);
-            //emulate_latency_ns(NVM_LATENCY);
-        }
-    } else if (support_clflushopt) {
-        for (i = 0; i < len; i += CACHELINE_SIZE) {		
-	    _mm_clflushopt(buf + i);
-	    /*
-	    printk(KERN_INFO "%s: Flushed addr = %p\n",
-		   __func__, buf + i);
-	    */
-            //emulate_latency_ns(NVM_LATENCY);
-        }
-    } else {
-        for (i = 0; i < len; i += CACHELINE_SIZE) {
-            _mm_clflush(buf + i);
-            //emulate_latency_ns(NVM_LATENCY);
-        }
-    }
-
-    // Rohan adding write delay
-#if CONFIG_LEDGER
-    perfmodel_add_delay(0, len);
-#endif
-
-    /* Do a fence only if asked. We often don't need to do a fence
-     * immediately after clflush because even if we get context switched
-     * between clflush and subsequent fence, the context switch operation
-     * provides implicit fence. */
-    if (fence)
-	    PERSISTENT_BARRIER();
+	uint32_t i;
+	len = len + ((unsigned long)(buf) & (CACHELINE_SIZE - 1));
+	if (support_clwb) {
+		for (i = 0; i < len; i += CACHELINE_SIZE)
+			_mm_clwb(buf + i);
+	} else {
+		for (i = 0; i < len; i += CACHELINE_SIZE)
+			_mm_clflush(buf + i);
+	}
+	/* Do a fence only if asked. We often don't need to do a fence
+	 * immediately after clflush because even if we get context switched
+	 * between clflush and subsequent fence, the context switch operation
+	 * provides implicit fence. */
+	if (fence)
+		PERSISTENT_BARRIER();
 }
 
 #endif /* _LINUX_PMFS_DEF_H */

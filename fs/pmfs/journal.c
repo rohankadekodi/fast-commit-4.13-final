@@ -31,6 +31,7 @@
 #include <linux/kthread.h>
 #include "pmfs.h"
 #include "journal.h"
+#include "inode.h"
 
 static void dump_transaction(struct pmfs_sb_info *sbi,
 		pmfs_transaction_t *trans)

@@ -34,10 +34,10 @@
 #include <linux/list.h>
 #include <linux/dax.h>
 #include "pmfs.h"
+#include "inode.h"
 
 int measure_timing = 0;
 int support_clwb = 0;
-int support_clflushopt = 0;
 int support_pcommit = 0;
 
 module_param(measure_timing, int, S_IRUGO);
@@ -619,9 +619,6 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 	if (arch_has_clwb()) {
 		pmfs_info("arch has CLWB support\n");
 		support_clwb = 1;
-    } else if (arch_has_clflushopt()) {
-        pmfs_info("arch has CLFLUSHOPT support\n");
-        support_clflushopt = 1;
 	} else {
 		pmfs_info("arch does not have CLWB support\n");
 	}

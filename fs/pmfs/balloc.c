@@ -22,6 +22,7 @@
 #include <linux/fs.h>
 #include <linux/bitops.h>
 #include "pmfs.h"
+#include "inode.h"
 
 void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 {

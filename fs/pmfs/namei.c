@@ -16,6 +16,7 @@
 #include <linux/pagemap.h>
 #include "pmfs.h"
 #include "xip.h"
+#include "inode.h"
 
 /*
  * Couple of helper functions - make the code slightly cleaner.

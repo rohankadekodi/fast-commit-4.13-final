@@ -23,6 +23,7 @@
 #include <linux/bitops.h>
 #include <linux/slab.h>
 #include "pmfs.h"
+#include "inode.h"
 
 struct scan_bitmap {
 	unsigned long bitmap_4k_size;

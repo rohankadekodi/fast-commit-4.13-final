@@ -24,6 +24,7 @@
 #include <linux/ratelimit.h>
 #include "pmfs.h"
 #include "xip.h"
+#include "inode.h"
 
 unsigned int blk_type_to_shift[PMFS_BLOCK_TYPE_MAX] = {12, 21, 30};
 uint32_t blk_type_to_size[PMFS_BLOCK_TYPE_MAX] = {0x1000, 0x200000, 0x40000000};
@@ -662,7 +663,7 @@ int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 	unsigned int height;
 	unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
 	unsigned int blk_shift, meta_bits = META_BLK_SHIFT;
-	unsigned long blocknr, first_blocknr, last_blocknr, total_blocks = 0;
+	unsigned long blocknr, first_blocknr, last_blocknr, total_blocks;
 	timing_t alloc_time;
 
 	/* convert the 4K blocks into the actual blocks the inode is using */
@@ -1217,11 +1218,6 @@ inline void pmfs_update_isize(struct inode *inode, struct pmfs_inode *pi)
 {
 	pmfs_memunlock_inode(inode->i_sb, pi);
 	pi->i_size = cpu_to_le64(inode->i_size);
-	/*
-	printk(KERN_INFO "%s: flushing addr = %p\n",
-	       __func__, &pi->i_size);
-	*/
-	pmfs_flush_buffer(&pi->i_size, sizeof(pi->i_size), true);
 	pmfs_memlock_inode(inode->i_sb, pi);
 }
 
