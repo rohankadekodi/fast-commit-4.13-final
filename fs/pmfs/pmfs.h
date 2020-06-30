@@ -243,6 +243,15 @@ struct pmfs_blocknode {
 	unsigned long block_high;
 };
 
+struct inode_map {
+	struct mutex inode_table_mutex;
+	struct rb_root inode_inuse_tree;
+	unsigned long num_range_node_inode;
+	struct pmfs_range_node *first_inode_range;
+	int allocated;
+	int freed;
+};
+
 /*
  * PMFS super-block data in memory
  */
@@ -298,6 +307,8 @@ struct pmfs_sb_info {
 	/* truncate list related structures */
 	struct list_head s_truncate;
 	struct mutex s_truncate_lock;
+
+	struct inode_map inode_map;
 };
 
 struct pmfs_range_node {
@@ -502,6 +513,8 @@ int pmfs_insert_dir_tree(struct super_block *sb,
 int pmfs_remove_dir_tree(struct super_block *sb,
 			 struct pmfs_inode_info_header *sih, const char *name, int namelen,
 			 struct pmfs_direntry **create_dentry);
+void pmfs_delete_dir_tree(struct super_block *sb,
+			  struct pmfs_inode_info_header *sih);
 
 /* file.c */
 extern const struct inode_operations pmfs_file_inode_operations;

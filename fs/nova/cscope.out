@@ -1,4 +1,4 @@
-cscope 15 $HOME/projects/linux-4.13/fs/nova               0000592464
+cscope 15 $HOME/modified-pmfs-ext4-4.13/fs/nova               0000565704
 	@balloc.c
 
 26 
@@ -97299,108 +97299,6 @@ nova_¥oc_roŸ
 	}
 }
 
-	@/usr/include/asm/mman.h
-
-2 #i‚de‡
-_ASM_X86_MMAN_H
-
-
-3 
-	#_ASM_X86_MMAN_H
-
-
-	)
-
-5 
-	#MAP_32BIT
- 0x40
-
-	)
-
-7 #ifde‡
-CONFIG_X86_INTEL_MEMORY_PROTECTION_KEYS
-
-
-16 
-	#¨ch_vm_gë_∑ge_¥Ÿ
-(
-vm_Êags
-Ë
-	`__pg¥Ÿ
-( \
-
-17 ((
-vm_Êags
-Ë& 
-VM_PKEY_BIT0
- ? 
-_PAGE_PKEY_BIT0
- : 0) | \
-
-18 ((
-vm_Êags
-Ë& 
-VM_PKEY_BIT1
- ? 
-_PAGE_PKEY_BIT1
- : 0) | \
-
-19 ((
-vm_Êags
-Ë& 
-VM_PKEY_BIT2
- ? 
-_PAGE_PKEY_BIT2
- : 0) | \
-
-20 ((
-vm_Êags
-Ë& 
-VM_PKEY_BIT3
- ? 
-_PAGE_PKEY_BIT3
- : 0))
-
-	)
-
-22 
-	#¨ch_ˇlc_vm_¥Ÿ_bôs
-(
-¥Ÿ
-, 
-key
-) ( \
-
-23 ((
-key
-Ë& 0x1 ? 
-VM_PKEY_BIT0
- : 0) | \
-
-24 ((
-key
-Ë& 0x2 ? 
-VM_PKEY_BIT1
- : 0) | \
-
-25 ((
-key
-Ë& 0x4 ? 
-VM_PKEY_BIT2
- : 0) | \
-
-26 ((
-key
-Ë& 0x8 ? 
-VM_PKEY_BIT3
- : 0))
-
-	)
-
-29 
-	~<asm-gíîic/mm™.h
->
-
 	@/usr/include/linux/capability.h
 
 14 #i‚de‡
@@ -98031,33 +97929,29 @@ _LINUX_FS_H
 	~<löux/ty≥s.h
 >
 
-18 
-	~<löux/mou¡.h
->
-
-31 #unde‡
+28 #unde‡
 NR_OPEN
 
 
-32 
+29 
 	#INR_OPEN_CUR
  1024
 
 	)
 
-33 
+30 
 	#INR_OPEN_MAX
  4096
 
 	)
 
-35 
+32 
 	#BLOCK_SIZE_BITS
  10
 
 	)
 
-36 
+33 
 	#BLOCK_SIZE
  (1<<
 BLOCK_SIZE_BITS
@@ -98065,37 +97959,37 @@ BLOCK_SIZE_BITS
 
 	)
 
-38 
+35 
 	#SEEK_SET
  0
 
 	)
 
-39 
+36 
 	#SEEK_CUR
  1
 
 	)
 
-40 
+37 
 	#SEEK_END
  2
 
 	)
 
-41 
+38 
 	#SEEK_DATA
  3
 
 	)
 
-42 
+39 
 	#SEEK_HOLE
  4
 
 	)
 
-43 
+40 
 	#SEEK_MAX
  
 SEEK_HOLE
@@ -98103,339 +97997,555 @@ SEEK_HOLE
 
 	)
 
-45 
+42 
 	#RENAME_NOREPLACE
  (1 << 0Ë
 
 	)
 
-46 
+43 
 	#RENAME_EXCHANGE
  (1 << 1Ë
 
 	)
 
-47 
+44 
 	#RENAME_WHITEOUT
  (1 << 2Ë
 
 	)
 
-49 
+46 
 	sfûe_˛⁄e_ønge
  {
 
-50 
+47 
 __s64
  
 	m§c_fd
 ;
 
-51 
+48 
 __u64
  
 	m§c_off£t
 ;
 
-52 
+49 
 __u64
  
 	m§c_Àngth
 ;
 
-53 
+50 
 __u64
  
 	mde°_off£t
 ;
 
-56 
+53 
 	sf°rim_ønge
  {
 
-57 
+54 
 __u64
  
 	m°¨t
 ;
 
-58 
+55 
 __u64
  
 	mÀn
 ;
 
-59 
+56 
 __u64
  
 	mmöÀn
 ;
 
-63 
+60 
 	#FILE_DEDUPE_RANGE_SAME
  0
 
 	)
 
-64 
+61 
 	#FILE_DEDUPE_RANGE_DIFFERS
  1
 
 	)
 
-67 
+64 
 	sfûe_dedu≥_ønge_öfo
  {
 
-68 
+65 
 __s64
  
 	mde°_fd
 ;
 
-69 
+66 
 __u64
  
 	mde°_off£t
 ;
 
-70 
+67 
 __u64
  
 	mbyãs_dedu≥d
 ;
 
-77 
+74 
 __s32
  
 	m°©us
 ;
 
-78 
+75 
 __u32
  
 	mª£rved
 ;
 
-82 
+79 
 	sfûe_dedu≥_ønge
  {
 
-83 
+80 
 __u64
  
 	m§c_off£t
 ;
 
-84 
+81 
 __u64
  
 	m§c_Àngth
 ;
 
-85 
+82 
 __u16
  
 	mde°_cou¡
 ;
 
-86 
+83 
 __u16
  
 	mª£rved1
 ;
 
-87 
+84 
 __u32
  
 	mª£rved2
 ;
 
-88 
+85 
 fûe_dedu≥_ønge_öfo
  
 	möfo
 [0];
 
-92 
+89 
 	sfûes_°©_°ru˘
  {
 
-93 
+90 
 	mƒ_fûes
 ;
 
-94 
+91 
 	mƒ_‰ì_fûes
 ;
 
-95 
+92 
 	mmax_fûes
 ;
 
-98 
+95 
 	söodes_°©_t
  {
 
-99 
+96 
 	mƒ_öodes
 ;
 
-100 
+97 
 	mƒ_unu£d
 ;
 
-101 
+98 
 	mdummy
 [5];
 
-105 
+102 
 	#NR_FILE
  8192
 
 	)
 
-110 
+108 
+	#MS_RDONLY
+ 1
+
+	)
+
+109 
+	#MS_NOSUID
+ 2
+
+	)
+
+110 
+	#MS_NODEV
+ 4
+
+	)
+
+111 
+	#MS_NOEXEC
+ 8
+
+	)
+
+112 
+	#MS_SYNCHRONOUS
+ 16
+
+	)
+
+113 
+	#MS_REMOUNT
+ 32
+
+	)
+
+114 
+	#MS_MANDLOCK
+ 64
+
+	)
+
+115 
+	#MS_DIRSYNC
+ 128
+
+	)
+
+116 
+	#MS_NOATIME
+ 1024
+
+	)
+
+117 
+	#MS_NODIRATIME
+ 2048
+
+	)
+
+118 
+	#MS_BIND
+ 4096
+
+	)
+
+119 
+	#MS_MOVE
+ 8192
+
+	)
+
+120 
+	#MS_REC
+ 16384
+
+	)
+
+121 
+	#MS_VERBOSE
+ 32768
+
+	)
+
+123 
+	#MS_SILENT
+ 32768
+
+	)
+
+124 
+	#MS_POSIXACL
+ (1<<16Ë
+
+	)
+
+125 
+	#MS_UNBINDABLE
+ (1<<17Ë
+
+	)
+
+126 
+	#MS_PRIVATE
+ (1<<18Ë
+
+	)
+
+127 
+	#MS_SLAVE
+ (1<<19Ë
+
+	)
+
+128 
+	#MS_SHARED
+ (1<<20Ë
+
+	)
+
+129 
+	#MS_RELATIME
+ (1<<21Ë
+
+	)
+
+130 
+	#MS_KERNMOUNT
+ (1<<22Ë
+
+	)
+
+131 
+	#MS_I_VERSION
+ (1<<23Ë
+
+	)
+
+132 
+	#MS_STRICTATIME
+ (1<<24Ë
+
+	)
+
+133 
+	#MS_LAZYTIME
+ (1<<25Ë
+
+	)
+
+136 
+	#MS_SUBMOUNT
+ (1<<26)
+
+	)
+
+137 
+	#MS_NOREMOTELOCK
+ (1<<27)
+
+	)
+
+138 
+	#MS_NOSEC
+ (1<<28)
+
+	)
+
+139 
+	#MS_BORN
+ (1<<29)
+
+	)
+
+140 
+	#MS_ACTIVE
+ (1<<30)
+
+	)
+
+141 
+	#MS_NOUSER
+ (1<<31)
+
+	)
+
+146 
+	#MS_RMT_MASK
+ (
+MS_RDONLY
+|
+MS_SYNCHRONOUS
+|
+MS_MANDLOCK
+|
+MS_I_VERSION
+|\
+
+147 
+MS_LAZYTIME
+)
+
+	)
+
+152 
+	#MS_MGC_VAL
+ 0xC0ED0000
+
+	)
+
+153 
+	#MS_MGC_MSK
+ 0xffff0000
+
+	)
+
+158 
 	sfsx©å
  {
 
-111 
+159 
 __u32
  
 	mfsx_xÊags
 ;
 
-112 
+160 
 __u32
  
 	mfsx_extsize
 ;
 
-113 
+161 
 __u32
  
 	mfsx_√xã¡s
 ;
 
-114 
+162 
 __u32
  
 	mfsx_¥ojid
 ;
 
-115 
+163 
 __u32
  
 	mfsx_cowextsize
 ;
 
-116 
+164 
 	mfsx_∑d
 [8];
 
-122 
+170 
 	#FS_XFLAG_REALTIME
  0x00000001
 
 	)
 
-123 
+171 
 	#FS_XFLAG_PREALLOC
  0x00000002
 
 	)
 
-124 
+172 
 	#FS_XFLAG_IMMUTABLE
  0x00000008
 
 	)
 
-125 
+173 
 	#FS_XFLAG_APPEND
  0x00000010
 
 	)
 
-126 
+174 
 	#FS_XFLAG_SYNC
  0x00000020
 
 	)
 
-127 
+175 
 	#FS_XFLAG_NOATIME
  0x00000040
 
 	)
 
-128 
+176 
 	#FS_XFLAG_NODUMP
  0x00000080
 
 	)
 
-129 
+177 
 	#FS_XFLAG_RTINHERIT
  0x00000100
 
 	)
 
-130 
+178 
 	#FS_XFLAG_PROJINHERIT
  0x00000200
 
 	)
 
-131 
+179 
 	#FS_XFLAG_NOSYMLINKS
  0x00000400
 
 	)
 
-132 
+180 
 	#FS_XFLAG_EXTSIZE
  0x00000800
 
 	)
 
-133 
+181 
 	#FS_XFLAG_EXTSZINHERIT
  0x00001000
 
 	)
 
-134 
+182 
 	#FS_XFLAG_NODEFRAG
  0x00002000
 
 	)
 
-135 
+183 
 	#FS_XFLAG_FILESTREAM
  0x00004000
 
 	)
 
-136 
+184 
 	#FS_XFLAG_DAX
  0x00008000
 
 	)
 
-137 
+185 
 	#FS_XFLAG_COWEXTSIZE
  0x00010000
 
 	)
 
-138 
+186 
 	#FS_XFLAG_HASATTR
  0x80000000
 
 	)
 
-143 
+191 
 	#BLKROSET
  
 	`_IO
@@ -98443,7 +98553,7 @@ __u32
 
 	)
 
-144 
+192 
 	#BLKROGET
  
 	`_IO
@@ -98451,7 +98561,7 @@ __u32
 
 	)
 
-145 
+193 
 	#BLKRRPART
  
 	`_IO
@@ -98459,7 +98569,7 @@ __u32
 
 	)
 
-146 
+194 
 	#BLKGETSIZE
  
 	`_IO
@@ -98467,7 +98577,7 @@ __u32
 
 	)
 
-147 
+195 
 	#BLKFLSBUF
  
 	`_IO
@@ -98475,7 +98585,7 @@ __u32
 
 	)
 
-148 
+196 
 	#BLKRASET
  
 	`_IO
@@ -98483,7 +98593,7 @@ __u32
 
 	)
 
-149 
+197 
 	#BLKRAGET
  
 	`_IO
@@ -98491,7 +98601,7 @@ __u32
 
 	)
 
-150 
+198 
 	#BLKFRASET
  
 	`_IO
@@ -98499,7 +98609,7 @@ __u32
 
 	)
 
-151 
+199 
 	#BLKFRAGET
  
 	`_IO
@@ -98507,7 +98617,7 @@ __u32
 
 	)
 
-152 
+200 
 	#BLKSECTSET
  
 	`_IO
@@ -98515,7 +98625,7 @@ __u32
 
 	)
 
-153 
+201 
 	#BLKSECTGET
  
 	`_IO
@@ -98523,7 +98633,7 @@ __u32
 
 	)
 
-154 
+202 
 	#BLKSSZGET
  
 	`_IO
@@ -98531,7 +98641,7 @@ __u32
 
 	)
 
-156 
+204 
 	#BLKPG
  
 	`_IO
@@ -98539,7 +98649,7 @@ __u32
 
 	)
 
-160 
+208 
 	#BLKELVGET
  
 	`_IOR
@@ -98549,7 +98659,7 @@ size_t
 
 	)
 
-161 
+209 
 	#BLKELVSET
  
 	`_IOW
@@ -98559,7 +98669,7 @@ size_t
 
 	)
 
-166 
+214 
 	#BLKBSZGET
  
 	`_IOR
@@ -98569,7 +98679,7 @@ size_t
 
 	)
 
-167 
+215 
 	#BLKBSZSET
  
 	`_IOW
@@ -98579,7 +98689,7 @@ size_t
 
 	)
 
-168 
+216 
 	#BLKGETSIZE64
  
 	`_IOR
@@ -98589,7 +98699,7 @@ size_t
 
 	)
 
-169 
+217 
 	#BLKTRACESETUP
  
 	`_IOWR
@@ -98599,7 +98709,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-170 
+218 
 	#BLKTRACESTART
  
 	`_IO
@@ -98607,7 +98717,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-171 
+219 
 	#BLKTRACESTOP
  
 	`_IO
@@ -98615,7 +98725,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-172 
+220 
 	#BLKTRACETEARDOWN
  
 	`_IO
@@ -98623,7 +98733,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-173 
+221 
 	#BLKDISCARD
  
 	`_IO
@@ -98631,7 +98741,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-174 
+222 
 	#BLKIOMIN
  
 	`_IO
@@ -98639,7 +98749,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-175 
+223 
 	#BLKIOOPT
  
 	`_IO
@@ -98647,7 +98757,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-176 
+224 
 	#BLKALIGNOFF
  
 	`_IO
@@ -98655,7 +98765,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-177 
+225 
 	#BLKPBSZGET
  
 	`_IO
@@ -98663,7 +98773,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-178 
+226 
 	#BLKDISCARDZEROES
  
 	`_IO
@@ -98671,7 +98781,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-179 
+227 
 	#BLKSECDISCARD
  
 	`_IO
@@ -98679,7 +98789,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-180 
+228 
 	#BLKROTATIONAL
  
 	`_IO
@@ -98687,7 +98797,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-181 
+229 
 	#BLKZEROOUT
  
 	`_IO
@@ -98695,13 +98805,13 @@ blk_u£r_åa˚_£tup
 
 	)
 
-187 
+235 
 	#BMAP_IOCTL
  1
 
 	)
 
-188 
+236 
 	#FIBMAP
  
 	`_IO
@@ -98709,7 +98819,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-189 
+237 
 	#FIGETBSZ
  
 	`_IO
@@ -98717,7 +98827,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-190 
+238 
 	#FIFREEZE
  
 	`_IOWR
@@ -98725,7 +98835,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-191 
+239 
 	#FITHAW
  
 	`_IOWR
@@ -98733,7 +98843,7 @@ blk_u£r_åa˚_£tup
 
 	)
 
-192 
+240 
 	#FITRIM
  
 	`_IOWR
@@ -98743,7 +98853,7 @@ f°rim_ønge
 
 	)
 
-193 
+241 
 	#FICLONE
  
 	`_IOW
@@ -98751,7 +98861,7 @@ f°rim_ønge
 
 	)
 
-194 
+242 
 	#FICLONERANGE
  
 	`_IOW
@@ -98761,7 +98871,7 @@ fûe_˛⁄e_ønge
 
 	)
 
-195 
+243 
 	#FIDEDUPERANGE
  
 	`_IOWR
@@ -98771,13 +98881,7 @@ fûe_dedu≥_ønge
 
 	)
 
-197 
-	#FSLABEL_MAX
- 256
-
-	)
-
-199 
+245 
 	#FS_IOC_GETFLAGS
  
 	`_IOR
@@ -98785,7 +98889,7 @@ fûe_dedu≥_ønge
 
 	)
 
-200 
+246 
 	#FS_IOC_SETFLAGS
  
 	`_IOW
@@ -98793,7 +98897,7 @@ fûe_dedu≥_ønge
 
 	)
 
-201 
+247 
 	#FS_IOC_GETVERSION
  
 	`_IOR
@@ -98801,7 +98905,7 @@ fûe_dedu≥_ønge
 
 	)
 
-202 
+248 
 	#FS_IOC_SETVERSION
  
 	`_IOW
@@ -98809,7 +98913,7 @@ fûe_dedu≥_ønge
 
 	)
 
-203 
+249 
 	#FS_IOC_FIEMAP
  
 	`_IOWR
@@ -98819,7 +98923,7 @@ fõm≠
 
 	)
 
-204 
+250 
 	#FS_IOC32_GETFLAGS
  
 	`_IOR
@@ -98827,7 +98931,7 @@ fõm≠
 
 	)
 
-205 
+251 
 	#FS_IOC32_SETFLAGS
  
 	`_IOW
@@ -98835,7 +98939,7 @@ fõm≠
 
 	)
 
-206 
+252 
 	#FS_IOC32_GETVERSION
  
 	`_IOR
@@ -98843,7 +98947,7 @@ fõm≠
 
 	)
 
-207 
+253 
 	#FS_IOC32_SETVERSION
  
 	`_IOW
@@ -98851,183 +98955,139 @@ fõm≠
 
 	)
 
-208 
+254 
 	#FS_IOC_FSGETXATTR
  
 	`_IOR
-('X', 31, 
+ ('X', 31, 
 fsx©å
 )
 
 	)
 
-209 
+255 
 	#FS_IOC_FSSETXATTR
  
 	`_IOW
-('X', 32, 
+ ('X', 32, 
 fsx©å
 )
 
 	)
 
-210 
-	#FS_IOC_GETFSLABEL
- 
-	`_IOR
-(0x94, 49, [
-FSLABEL_MAX
-])
-
-	)
-
-211 
-	#FS_IOC_SETFSLABEL
- 
-	`_IOW
-(0x94, 50, [
-FSLABEL_MAX
-])
-
-	)
-
-217 
+261 
 	#FS_KEY_DESCRIPTOR_SIZE
  8
 
 	)
 
-219 
+263 
 	#FS_POLICY_FLAGS_PAD_4
  0x00
 
 	)
 
-220 
+264 
 	#FS_POLICY_FLAGS_PAD_8
  0x01
 
 	)
 
-221 
+265 
 	#FS_POLICY_FLAGS_PAD_16
  0x02
 
 	)
 
-222 
+266 
 	#FS_POLICY_FLAGS_PAD_32
  0x03
 
 	)
 
-223 
+267 
 	#FS_POLICY_FLAGS_PAD_MASK
  0x03
 
 	)
 
-224 
-	#FS_POLICY_FLAG_DIRECT_KEY
- 0x04
-
-	)
-
-225 
+268 
 	#FS_POLICY_FLAGS_VALID
- 0x07
+ 0x03
 
 	)
 
-228 
+271 
 	#FS_ENCRYPTION_MODE_INVALID
  0
 
 	)
 
-229 
+272 
 	#FS_ENCRYPTION_MODE_AES_256_XTS
  1
 
 	)
 
-230 
+273 
 	#FS_ENCRYPTION_MODE_AES_256_GCM
  2
 
 	)
 
-231 
+274 
 	#FS_ENCRYPTION_MODE_AES_256_CBC
  3
 
 	)
 
-232 
+275 
 	#FS_ENCRYPTION_MODE_AES_256_CTS
  4
 
 	)
 
-233 
+276 
 	#FS_ENCRYPTION_MODE_AES_128_CBC
  5
 
 	)
 
-234 
+277 
 	#FS_ENCRYPTION_MODE_AES_128_CTS
  6
 
 	)
 
-235 
-	#FS_ENCRYPTION_MODE_SPECK128_256_XTS
- 7
-
-	)
-
-236 
-	#FS_ENCRYPTION_MODE_SPECK128_256_CTS
- 8
-
-	)
-
-237 
-	#FS_ENCRYPTION_MODE_ADIANTUM
- 9
-
-	)
-
-239 
+279 
 	sfs¸y±_pﬁicy
  {
 
-240 
+280 
 __u8
  
 	mvîsi⁄
 ;
 
-241 
+281 
 __u8
  
 	mc⁄ã¡s_í¸y±i⁄_mode
 ;
 
-242 
+282 
 __u8
  
 	mfûíames_í¸y±i⁄_mode
 ;
 
-243 
+283 
 __u8
  
 	mÊags
 ;
 
-244 
+284 
 __u8
  
 	mma°î_key_des¸ùt‹
@@ -99035,7 +99095,7 @@ __u8
 FS_KEY_DESCRIPTOR_SIZE
 ];
 
-247 
+287 
 	#FS_IOC_SET_ENCRYPTION_POLICY
  
 	`_IOR
@@ -99045,7 +99105,7 @@ fs¸y±_pﬁicy
 
 	)
 
-248 
+288 
 	#FS_IOC_GET_ENCRYPTION_PWSALT
  
 	`_IOW
@@ -99055,7 +99115,7 @@ __u8
 
 	)
 
-249 
+289 
 	#FS_IOC_GET_ENCRYPTION_POLICY
  
 	`_IOW
@@ -99065,35 +99125,35 @@ fs¸y±_pﬁicy
 
 	)
 
-252 
+292 
 	#FS_KEY_DESC_PREFIX
  "fs¸y±:"
 
 	)
 
-253 
+293 
 	#FS_KEY_DESC_PREFIX_SIZE
  8
 
 	)
 
-256 
+296 
 	#FS_MAX_KEY_SIZE
  64
 
 	)
 
-258 
+298 
 	sfs¸y±_key
  {
 
-259 
+299 
 __u32
  
 	mmode
 ;
 
-260 
+300 
 __u8
  
 	møw
@@ -99101,211 +99161,211 @@ __u8
 FS_MAX_KEY_SIZE
 ];
 
-261 
+301 
 __u32
  
 	msize
 ;
 
-284 
+324 
 	#FS_SECRM_FL
  0x00000001
 
 	)
 
-285 
+325 
 	#FS_UNRM_FL
  0x00000002
 
 	)
 
-286 
+326 
 	#FS_COMPR_FL
  0x00000004
 
 	)
 
-287 
+327 
 	#FS_SYNC_FL
  0x00000008
 
 	)
 
-288 
+328 
 	#FS_IMMUTABLE_FL
  0x00000010
 
 	)
 
-289 
+329 
 	#FS_APPEND_FL
  0x00000020
 
 	)
 
-290 
+330 
 	#FS_NODUMP_FL
  0x00000040
 
 	)
 
-291 
+331 
 	#FS_NOATIME_FL
  0x00000080
 
 	)
 
-293 
+333 
 	#FS_DIRTY_FL
  0x00000100
 
 	)
 
-294 
+334 
 	#FS_COMPRBLK_FL
  0x00000200
 
 	)
 
-295 
+335 
 	#FS_NOCOMP_FL
  0x00000400
 
 	)
 
-297 
+337 
 	#FS_ENCRYPT_FL
  0x00000800
 
 	)
 
-298 
+338 
 	#FS_BTREE_FL
  0x00001000
 
 	)
 
-299 
+339 
 	#FS_INDEX_FL
  0x00001000
 
 	)
 
-300 
+340 
 	#FS_IMAGIC_FL
  0x00002000
 
 	)
 
-301 
+341 
 	#FS_JOURNAL_DATA_FL
  0x00004000
 
 	)
 
-302 
+342 
 	#FS_NOTAIL_FL
  0x00008000
 
 	)
 
-303 
+343 
 	#FS_DIRSYNC_FL
  0x00010000
 
 	)
 
-304 
+344 
 	#FS_TOPDIR_FL
  0x00020000
 
 	)
 
-305 
+345 
 	#FS_HUGE_FILE_FL
  0x00040000
 
 	)
 
-306 
+346 
 	#FS_EXTENT_FL
  0x00080000
 
 	)
 
-307 
+347 
 	#FS_EA_INODE_FL
  0x00200000
 
 	)
 
-308 
+348 
 	#FS_EOFBLOCKS_FL
  0x00400000
 
 	)
 
-309 
+349 
 	#FS_NOCOW_FL
  0x00800000
 
 	)
 
-310 
+350 
 	#FS_INLINE_DATA_FL
  0x10000000
 
 	)
 
-311 
+351 
 	#FS_PROJINHERIT_FL
  0x20000000
 
 	)
 
-312 
+352 
 	#FS_RESERVED_FL
  0x80000000
 
 	)
 
-314 
+354 
 	#FS_FL_USER_VISIBLE
  0x0003DFFF
 
 	)
 
-315 
+355 
 	#FS_FL_USER_MODIFIABLE
  0x000380FF
 
 	)
 
-318 
+358 
 	#SYNC_FILE_RANGE_WAIT_BEFORE
  1
 
 	)
 
-319 
+359 
 	#SYNC_FILE_RANGE_WRITE
  2
 
 	)
 
-320 
+360 
 	#SYNC_FILE_RANGE_WAIT_AFTER
  4
 
 	)
 
-326 
+366 
 	t__bôwi£
  
 	t__kî√l_rwf_t
 ;
 
-329 
+369 
 	#RWF_HIPRI
  ((
 __kî√l_rwf_t
@@ -99313,7 +99373,7 @@ __kî√l_rwf_t
 
 	)
 
-332 
+372 
 	#RWF_DSYNC
  ((
 __kî√l_rwf_t
@@ -99321,7 +99381,7 @@ __kî√l_rwf_t
 
 	)
 
-335 
+375 
 	#RWF_SYNC
  ((
 __kî√l_rwf_t
@@ -99329,7 +99389,7 @@ __kî√l_rwf_t
 
 	)
 
-338 
+378 
 	#RWF_NOWAIT
  ((
 __kî√l_rwf_t
@@ -99337,15 +99397,7 @@ __kî√l_rwf_t
 
 	)
 
-341 
-	#RWF_APPEND
- ((
-__kî√l_rwf_t
-)0x00000010)
-
-	)
-
-344 
+381 
 	#RWF_SUPPORTED
  (
 RWF_HIPRI
@@ -99355,10 +99407,6 @@ RWF_DSYNC
 RWF_SYNC
  | 
 RWF_NOWAIT
- |\
-
-345 
-RWF_APPEND
 )
 
 	)
@@ -99538,294 +99586,282 @@ __LINUX_MAGIC_H__
 	)
 
 32 
-	#XFS_SUPER_MAGIC
- 0x58465342
-
-	)
-
-33 
 	#PSTOREFS_MAGIC
  0x6165676C
 
 	)
 
-34 
+33 
 	#EFIVARFS_MAGIC
  0xde5e81e4
 
 	)
 
-35 
+34 
 	#HOSTFS_SUPER_MAGIC
  0x00c0f„e
 
 	)
 
-36 
+35 
 	#OVERLAYFS_SUPER_MAGIC
  0x794c7630
 
 	)
 
-38 
+37 
 	#MINIX_SUPER_MAGIC
  0x137F
 
 	)
 
-39 
+38 
 	#MINIX_SUPER_MAGIC2
  0x138F
 
 	)
 
-40 
+39 
 	#MINIX2_SUPER_MAGIC
  0x2468
 
 	)
 
-41 
+40 
 	#MINIX2_SUPER_MAGIC2
  0x2478
 
 	)
 
-42 
+41 
 	#MINIX3_SUPER_MAGIC
  0x4d5®
 
 	)
 
-44 
+43 
 	#MSDOS_SUPER_MAGIC
  0x4d44
 
 	)
 
-45 
+44 
 	#NCP_SUPER_MAGIC
  0x564¯
 
 	)
 
-46 
+45 
 	#NFS_SUPER_MAGIC
  0x6969
 
 	)
 
-47 
+46 
 	#OCFS2_SUPER_MAGIC
  0x7461636f
 
 	)
 
-48 
+47 
 	#OPENPROM_SUPER_MAGIC
  0x9Á1
 
 	)
 
-49 
+48 
 	#QNX4_SUPER_MAGIC
  0x002‡
 
 	)
 
-50 
+49 
 	#QNX6_SUPER_MAGIC
  0x68191122
 
 	)
 
-51 
+50 
 	#AFS_FS_MAGIC
  0x6B414653
 
 	)
 
-53 
+52 
 	#REISERFS_SUPER_MAGIC
  0x52654973
 
 	)
 
-56 
+55 
 	#REISERFS_SUPER_MAGIC_STRING
  "ReIsErFs"
 
 	)
 
-57 
+56 
 	#REISER2FS_SUPER_MAGIC_STRING
  "ReIsEr2Fs"
 
 	)
 
-58 
+57 
 	#REISER2FS_JR_SUPER_MAGIC_STRING
  "ReIsEr3Fs"
 
 	)
 
-60 
+59 
 	#SMB_SUPER_MAGIC
  0x517B
 
 	)
 
-61 
+60 
 	#CGROUP_SUPER_MAGIC
  0x27e0eb
 
 	)
 
-62 
+61 
 	#CGROUP2_SUPER_MAGIC
  0x63677270
 
 	)
 
-64 
+63 
 	#RDTGROUP_SUPER_MAGIC
  0x7655821
 
 	)
 
-66 
+65 
 	#STACK_END_MAGIC
  0x57AC6E9D
 
 	)
 
-68 
+67 
 	#TRACEFS_MAGIC
  0x74726163
 
 	)
 
-70 
+69 
 	#V9FS_MAGIC
  0x01021997
 
 	)
 
-72 
+71 
 	#BDEVFS_MAGIC
  0x62646576
 
 	)
 
-73 
+72 
 	#DAXFS_MAGIC
  0x64646178
 
 	)
 
-74 
+73 
 	#BINFMTFS_MAGIC
  0x42494e4d
 
 	)
 
-75 
+74 
 	#DEVPTS_SUPER_MAGIC
  0x1cd1
 
 	)
 
-76 
-	#BINDERFS_SUPER_MAGIC
- 0x6c6f6f70
-
-	)
-
-77 
+75 
 	#FUTEXFS_SUPER_MAGIC
  0xBAD1DEA
 
 	)
 
-78 
+76 
 	#PIPEFS_MAGIC
  0x50495045
 
 	)
 
-79 
+77 
 	#PROC_SUPER_MAGIC
  0x9Á0
 
 	)
 
-80 
+78 
 	#SOCKFS_MAGIC
  0x534F434B
 
 	)
 
-81 
+79 
 	#SYSFS_MAGIC
  0x62656572
 
 	)
 
-82 
+80 
 	#USBDEVICE_SUPER_MAGIC
  0x9Á2
 
 	)
 
-83 
+81 
 	#MTD_INODE_FS_MAGIC
  0x11307854
 
 	)
 
-84 
+82 
 	#ANON_INODE_FS_MAGIC
  0x09041934
 
 	)
 
-85 
+83 
 	#BTRFS_TEST_MAGIC
  0x73727279
 
 	)
 
-86 
+84 
 	#NSFS_MAGIC
  0x6e736673
 
 	)
 
-87 
+85 
 	#BPF_FS_MAGIC
  0xˇ„4a11
 
 	)
 
-88 
+86 
 	#AAFS_MAGIC
  0x5a3c69f0
 
 	)
 
-91 
+89 
 	#UDF_SUPER_MAGIC
  0x15013346
 
 	)
 
-92 
+90 
 	#BALLOON_KVM_MAGIC
  0x13661366
 
 	)
 
-93 
+91 
 	#ZSMALLOC_MAGIC
  0x58295829
 
@@ -99852,234 +99888,6 @@ _LINUX_MODULE_H
 7 
 	#MODULE_INIT_IGNORE_VERMAGIC
  2
-
-	)
-
-	@/usr/include/linux/mount.h
-
-1 #i‚de‡
-_LINUX_MOUNT_H
-
-
-2 
-	#_LINUX_MOUNT_H
-
-
-	)
-
-11 
-	#MS_RDONLY
- 1
-
-	)
-
-12 
-	#MS_NOSUID
- 2
-
-	)
-
-13 
-	#MS_NODEV
- 4
-
-	)
-
-14 
-	#MS_NOEXEC
- 8
-
-	)
-
-15 
-	#MS_SYNCHRONOUS
- 16
-
-	)
-
-16 
-	#MS_REMOUNT
- 32
-
-	)
-
-17 
-	#MS_MANDLOCK
- 64
-
-	)
-
-18 
-	#MS_DIRSYNC
- 128
-
-	)
-
-19 
-	#MS_NOATIME
- 1024
-
-	)
-
-20 
-	#MS_NODIRATIME
- 2048
-
-	)
-
-21 
-	#MS_BIND
- 4096
-
-	)
-
-22 
-	#MS_MOVE
- 8192
-
-	)
-
-23 
-	#MS_REC
- 16384
-
-	)
-
-24 
-	#MS_VERBOSE
- 32768
-
-	)
-
-26 
-	#MS_SILENT
- 32768
-
-	)
-
-27 
-	#MS_POSIXACL
- (1<<16Ë
-
-	)
-
-28 
-	#MS_UNBINDABLE
- (1<<17Ë
-
-	)
-
-29 
-	#MS_PRIVATE
- (1<<18Ë
-
-	)
-
-30 
-	#MS_SLAVE
- (1<<19Ë
-
-	)
-
-31 
-	#MS_SHARED
- (1<<20Ë
-
-	)
-
-32 
-	#MS_RELATIME
- (1<<21Ë
-
-	)
-
-33 
-	#MS_KERNMOUNT
- (1<<22Ë
-
-	)
-
-34 
-	#MS_I_VERSION
- (1<<23Ë
-
-	)
-
-35 
-	#MS_STRICTATIME
- (1<<24Ë
-
-	)
-
-36 
-	#MS_LAZYTIME
- (1<<25Ë
-
-	)
-
-39 
-	#MS_SUBMOUNT
- (1<<26)
-
-	)
-
-40 
-	#MS_NOREMOTELOCK
- (1<<27)
-
-	)
-
-41 
-	#MS_NOSEC
- (1<<28)
-
-	)
-
-42 
-	#MS_BORN
- (1<<29)
-
-	)
-
-43 
-	#MS_ACTIVE
- (1<<30)
-
-	)
-
-44 
-	#MS_NOUSER
- (1<<31)
-
-	)
-
-49 
-	#MS_RMT_MASK
- (
-MS_RDONLY
-|
-MS_SYNCHRONOUS
-|
-MS_MANDLOCK
-|
-MS_I_VERSION
-|\
-
-50 
-MS_LAZYTIME
-)
-
-	)
-
-55 
-	#MS_MGC_VAL
- 0xC0ED0000
-
-	)
-
-56 
-	#MS_MGC_MSK
- 0xffff0000
 
 	)
 
@@ -100727,28 +100535,6 @@ _LINUX_SCHED_H
 
 	)
 
-52 
-	#SCHED_FLAG_DL_OVERRUN
- 0x04
-
-	)
-
-54 
-	#SCHED_FLAG_ALL
- (
-SCHED_FLAG_RESET_ON_FORK
- | \
-
-55 
-SCHED_FLAG_RECLAIM
- | \
-
-56 
-SCHED_FLAG_DL_OVERRUN
-)
-
-	)
-
 	@/usr/include/linux/string.h
 
 2 #i‚de‡
@@ -100883,139 +100669,85 @@ timevÆ
 	mô_vÆue
 ;
 
-45 #i‚de‡
-__kî√l_time•ec
-
-
-46 
-	s__kî√l_time•ec
- {
-
-47 
-__kî√l_time64_t
- 
-	mtv_£c
-;
-
-48 
-	mtv_n£c
-;
-
-52 #i‚de‡
-__kî√l_ôimî•ec
-
-
-53 
-	s__kî√l_ôimî•ec
- {
-
-54 
-__kî√l_time•ec
- 
-	mô_öãrvÆ
-;
-
-55 
-__kî√l_time•ec
- 
-	mô_vÆue
-;
-
-66 
-	s__kî√l_ﬁd_timevÆ
- {
-
-67 
-__kî√l_l⁄g_t
- 
-	mtv_£c
-;
-
-68 
-__kî√l_l⁄g_t
- 
-	mtv_u£c
-;
-
-74 
+48 
 	#CLOCK_REALTIME
  0
 
 	)
 
-75 
+49 
 	#CLOCK_MONOTONIC
  1
 
 	)
 
-76 
+50 
 	#CLOCK_PROCESS_CPUTIME_ID
  2
 
 	)
 
-77 
+51 
 	#CLOCK_THREAD_CPUTIME_ID
  3
 
 	)
 
-78 
+52 
 	#CLOCK_MONOTONIC_RAW
  4
 
 	)
 
-79 
+53 
 	#CLOCK_REALTIME_COARSE
  5
 
 	)
 
-80 
+54 
 	#CLOCK_MONOTONIC_COARSE
  6
 
 	)
 
-81 
+55 
 	#CLOCK_BOOTTIME
  7
 
 	)
 
-82 
+56 
 	#CLOCK_REALTIME_ALARM
  8
 
 	)
 
-83 
+57 
 	#CLOCK_BOOTTIME_ALARM
  9
 
 	)
 
-88 
+62 
 	#CLOCK_SGI_CYCLE
  10
 
 	)
 
-89 
+63 
 	#CLOCK_TAI
  11
 
 	)
 
-91 
+65 
 	#MAX_CLOCKS
  16
 
 	)
 
-92 
+66 
 	#CLOCKS_MASK
  (
 CLOCK_REALTIME
@@ -101025,7 +100757,7 @@ CLOCK_MONOTONIC
 
 	)
 
-93 
+67 
 	#CLOCKS_MONO
  
 CLOCK_MONOTONIC
@@ -101033,7 +100765,7 @@ CLOCK_MONOTONIC
 
 	)
 
-98 
+72 
 	#TIMER_ABSTIME
  0x01
 
@@ -101191,12 +100923,6 @@ __À64
 
 	)
 
-47 
-	t__bôwi£
- 
-	t__pﬁl_t
-;
-
 	@/usr/include/linux/uio.h
 
 10 #i‚de‡
@@ -101243,7 +100969,7 @@ __kî√l_size_t
 
 1 
 	#LINUX_VERSION_CODE
- 327689
+ 266002
 
 	)
 
@@ -101258,116 +100984,6 @@ c
 Ë((◊Ë<< 16Ë+ ((bË<< 8Ë+ (c))
 
 	)
-
-	@/usr/include/asm-generic/mman.h
-
-2 #i‚de‡
-__ASM_GENERIC_MMAN_H
-
-
-3 
-	#__ASM_GENERIC_MMAN_H
-
-
-	)
-
-5 
-	~<asm-gíîic/mm™-comm⁄.h
->
-
-7 
-	#MAP_GROWSDOWN
- 0x0100
-
-	)
-
-8 
-	#MAP_DENYWRITE
- 0x0800
-
-	)
-
-9 
-	#MAP_EXECUTABLE
- 0x1000
-
-	)
-
-10 
-	#MAP_LOCKED
- 0x2000
-
-	)
-
-11 
-	#MAP_NORESERVE
- 0x4000
-
-	)
-
-12 
-	#MAP_POPULATE
- 0x8000
-
-	)
-
-13 
-	#MAP_NONBLOCK
- 0x10000
-
-	)
-
-14 
-	#MAP_STACK
- 0x20000
-
-	)
-
-15 
-	#MAP_HUGETLB
- 0x40000
-
-	)
-
-16 
-	#MAP_SYNC
- 0x80000
-
-	)
-
-20 
-	#MCL_CURRENT
- 1
-
-	)
-
-21 
-	#MCL_FUTURE
- 2
-
-	)
-
-22 
-	#MCL_ONFAULT
- 4
-
-	)
-
-	@/usr/include/asm/types.h
-
-2 #i‚de‡
-_ASM_X86_TYPES_H
-
-
-3 
-	#_ASM_X86_TYPES_H
-
-
-	)
-
-5 
-	~<asm-gíîic/ty≥s.h
->
 
 	@/usr/include/linux/ioctl.h
 
@@ -103453,992 +103069,6 @@ __f‹tify_fun˘i⁄
 __END_DECLS
 
 
-	@/usr/include/asm-generic/mman-common.h
-
-2 #i‚de‡
-__ASM_GENERIC_MMAN_COMMON_H
-
-
-3 
-	#__ASM_GENERIC_MMAN_COMMON_H
-
-
-	)
-
-10 
-	#PROT_READ
- 0x1
-
-	)
-
-11 
-	#PROT_WRITE
- 0x2
-
-	)
-
-12 
-	#PROT_EXEC
- 0x4
-
-	)
-
-13 
-	#PROT_SEM
- 0x8
-
-	)
-
-14 
-	#PROT_NONE
- 0x0
-
-	)
-
-15 
-	#PROT_GROWSDOWN
- 0x01000000
-
-	)
-
-16 
-	#PROT_GROWSUP
- 0x02000000
-
-	)
-
-18 
-	#MAP_SHARED
- 0x01
-
-	)
-
-19 
-	#MAP_PRIVATE
- 0x02
-
-	)
-
-20 
-	#MAP_SHARED_VALIDATE
- 0x03
-
-	)
-
-21 
-	#MAP_TYPE
- 0x0‡
-
-	)
-
-22 
-	#MAP_FIXED
- 0x10
-
-	)
-
-23 
-	#MAP_ANONYMOUS
- 0x20
-
-	)
-
-24 #ifde‡
-CONFIG_MMAP_ALLOW_UNINITIALIZED
-
-
-25 
-	#MAP_UNINITIALIZED
- 0x4000000
-
-	)
-
-27 
-	#MAP_UNINITIALIZED
- 0x0
-
-	)
-
-31 
-	#MAP_FIXED_NOREPLACE
- 0x100000
-
-	)
-
-36 
-	#MLOCK_ONFAULT
- 0x01
-
-	)
-
-38 
-	#MS_ASYNC
- 1
-
-	)
-
-39 
-	#MS_INVALIDATE
- 2
-
-	)
-
-40 
-	#MS_SYNC
- 4
-
-	)
-
-42 
-	#MADV_NORMAL
- 0
-
-	)
-
-43 
-	#MADV_RANDOM
- 1
-
-	)
-
-44 
-	#MADV_SEQUENTIAL
- 2
-
-	)
-
-45 
-	#MADV_WILLNEED
- 3
-
-	)
-
-46 
-	#MADV_DONTNEED
- 4
-
-	)
-
-49 
-	#MADV_FREE
- 8
-
-	)
-
-50 
-	#MADV_REMOVE
- 9
-
-	)
-
-51 
-	#MADV_DONTFORK
- 10
-
-	)
-
-52 
-	#MADV_DOFORK
- 11
-
-	)
-
-53 
-	#MADV_HWPOISON
- 100
-
-	)
-
-54 
-	#MADV_SOFT_OFFLINE
- 101
-
-	)
-
-56 
-	#MADV_MERGEABLE
- 12
-
-	)
-
-57 
-	#MADV_UNMERGEABLE
- 13
-
-	)
-
-59 
-	#MADV_HUGEPAGE
- 14
-
-	)
-
-60 
-	#MADV_NOHUGEPAGE
- 15
-
-	)
-
-62 
-	#MADV_DONTDUMP
- 16
-
-	)
-
-64 
-	#MADV_DODUMP
- 17
-
-	)
-
-66 
-	#MADV_WIPEONFORK
- 18
-
-	)
-
-67 
-	#MADV_KEEPONFORK
- 19
-
-	)
-
-70 
-	#MAP_FILE
- 0
-
-	)
-
-72 
-	#PKEY_DISABLE_ACCESS
- 0x1
-
-	)
-
-73 
-	#PKEY_DISABLE_WRITE
- 0x2
-
-	)
-
-74 
-	#PKEY_ACCESS_MASK
- (
-PKEY_DISABLE_ACCESS
- |\
-
-75 
-PKEY_DISABLE_WRITE
-)
-
-	)
-
-	@/usr/include/asm-generic/types.h
-
-2 #i‚de‡
-_ASM_GENERIC_TYPES_H
-
-
-3 
-	#_ASM_GENERIC_TYPES_H
-
-
-	)
-
-7 
-	~<asm-gíîic/öt-Œ64.h
->
-
-	@/usr/include/asm/ioctl.h
-
-1 
-	~<asm-gíîic/io˘l.h
->
-
-	@/usr/include/asm/posix_types.h
-
-2 #ifde‡
-__i386__
-
-
-3 
-	~<asm/posix_ty≥s_32.h
->
-
-4 #ñi‡
-deföed
-(
-__ILP32__
-)
-
-5 
-	~<asm/posix_ty≥s_x32.h
->
-
-7 
-	~<asm/posix_ty≥s_64.h
->
-
-	@/usr/include/bits/libc-header-start.h
-
-27 #i‚de‡
-__GLIBC_INTERNAL_STARTING_HEADER_IMPLEMENTATION
-
-
-31 #unde‡
-__GLIBC_INTERNAL_STARTING_HEADER_IMPLEMENTATION
-
-
-33 
-	~<„©uªs.h
->
-
-37 #unde‡
-__GLIBC_USE_LIB_EXT2
-
-
-38 #i‡(
-deföed
- 
-__USE_GNU
- \
-
-39 || (
-deföed
- 
-	g__STDC_WANT_LIB_EXT2__
- && __STDC_WANT_LIB_EXT2__ > 0))
-
-40 
-	#__GLIBC_USE_LIB_EXT2
- 1
-
-	)
-
-42 
-	#__GLIBC_USE_LIB_EXT2
- 0
-
-	)
-
-47 #unde‡
-__GLIBC_USE_IEC_60559_BFP_EXT
-
-
-48 #i‡
-deföed
- 
-__USE_GNU
- || deföed 
-__STDC_WANT_IEC_60559_BFP_EXT__
-
-
-49 
-	#__GLIBC_USE_IEC_60559_BFP_EXT
- 1
-
-	)
-
-51 
-	#__GLIBC_USE_IEC_60559_BFP_EXT
- 0
-
-	)
-
-56 #unde‡
-__GLIBC_USE_IEC_60559_FUNCS_EXT
-
-
-57 #i‡
-deföed
- 
-__USE_GNU
- || deföed 
-__STDC_WANT_IEC_60559_FUNCS_EXT__
-
-
-58 
-	#__GLIBC_USE_IEC_60559_FUNCS_EXT
- 1
-
-	)
-
-60 
-	#__GLIBC_USE_IEC_60559_FUNCS_EXT
- 0
-
-	)
-
-65 #unde‡
-__GLIBC_USE_IEC_60559_TYPES_EXT
-
-
-66 #i‡
-deföed
- 
-__USE_GNU
- || deföed 
-__STDC_WANT_IEC_60559_TYPES_EXT__
-
-
-67 
-	#__GLIBC_USE_IEC_60559_TYPES_EXT
- 1
-
-	)
-
-69 
-	#__GLIBC_USE_IEC_60559_TYPES_EXT
- 0
-
-	)
-
-	@/usr/include/bits/string_fortified.h
-
-18 #i‚de‡
-_BITS_STRING_FORTIFIED_H
-
-
-19 
-	#_BITS_STRING_FORTIFIED_H
- 1
-
-	)
-
-21 #i‚de‡
-_STRING_H
-
-
-25 #i‡!
-__GNUC_PREREQ
- (5,0)
-
-26 
-__w¨nde˛
- (
-__w¨n_mem£t_zîo_Àn
-,
-
-30 
-__f‹tify_fun˘i⁄
- *
-
-31 
-__NTH
- (
-	$mem˝y
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-,
-
-32 
-size_t
- 
-__Àn
-))
-
-34  
-	`__buûtö___mem˝y_chk
- (
-__de°
-, 
-__§c
-, 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-35 
-	}
-}
-
-37 
-__f‹tify_fun˘i⁄
- *
-
-38 
-__NTH
- (
-	$memmove
- (*
-__de°
-, c⁄° *
-__§c
-, 
-size_t
- 
-__Àn
-))
-
-40  
-	`__buûtö___memmove_chk
- (
-__de°
-, 
-__§c
-, 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-41 
-	}
-}
-
-43 #ifde‡
-__USE_GNU
-
-
-44 
-__f‹tify_fun˘i⁄
- *
-
-45 
-__NTH
- (
-	$memp˝y
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-,
-
-46 
-size_t
- 
-__Àn
-))
-
-48  
-	`__buûtö___memp˝y_chk
- (
-__de°
-, 
-__§c
-, 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-49 
-	}
-}
-
-58 
-__f‹tify_fun˘i⁄
- *
-
-59 
-__NTH
- (
-	$mem£t
- (*
-__de°
-, 
-__ch
-, 
-size_t
- 
-__Àn
-))
-
-63 #i‡!
-	`__GNUC_PREREQ
- (5,0)
-
-64 i‡(
-	`__buûtö_c⁄°™t_p
- (
-__Àn
-) && __len == 0
-
-65 && (!
-	`__buûtö_c⁄°™t_p
- (
-__ch
-) || __ch != 0))
-
-67 
-	`__w¨n_mem£t_zîo_Àn
- ();
-
-68  
-__de°
-;
-
-71  
-	`__buûtö___mem£t_chk
- (
-__de°
-, 
-__ch
-, 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-72 
-	}
-}
-
-74 #ifde‡
-__USE_MISC
-
-
-75 
-	~<bôs/°rögs_f‹tifõd.h
->
-
-77 
-	$__ex∂icô_bzîo_chk
- (*
-__de°
-, 
-size_t
- 
-__Àn
-, size_à
-__de°Àn
-)
-
-78 
-__THROW
- 
-	`__n⁄nuŒ
- ((1));
-
-80 
-__f‹tify_fun˘i⁄
- 
-
-81 
-	`__NTH
- (
-	$ex∂icô_bzîo
- (*
-__de°
-, 
-size_t
- 
-__Àn
-))
-
-83 
-	`__ex∂icô_bzîo_chk
- (
-__de°
-, 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-84 
-	}
-}
-
-87 
-__f‹tify_fun˘i⁄
- *
-
-88 
-__NTH
- (
-	$°r˝y
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-))
-
-90  
-	`__buûtö___°r˝y_chk
- (
-__de°
-, 
-__§c
-, 
-	`__bos
- (__dest));
-
-91 
-	}
-}
-
-93 #ifde‡
-__USE_GNU
-
-
-94 
-__f‹tify_fun˘i⁄
- *
-
-95 
-__NTH
- (
-	$°p˝y
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-))
-
-97  
-	`__buûtö___°p˝y_chk
- (
-__de°
-, 
-__§c
-, 
-	`__bos
- (__dest));
-
-98 
-	}
-}
-
-102 
-__f‹tify_fun˘i⁄
- *
-
-103 
-__NTH
- (
-	$°∫˝y
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-,
-
-104 
-size_t
- 
-__Àn
-))
-
-106  
-	`__buûtö___°∫˝y_chk
- (
-__de°
-, 
-__§c
-, 
-__Àn
-, 
-	`__bos
- (__dest));
-
-107 
-	}
-}
-
-110 *
-	$__°≤˝y_chk
- (*
-__de°
-, c⁄° *
-__§c
-, 
-size_t
- 
-__n
-,
-
-111 
-size_t
- 
-__de°Àn
-Ë
-__THROW
-;
-
-112 *
-	`__REDIRECT_NTH
- (
-__°≤˝y_Æüs
-, (*
-__de°
-, c⁄° *
-__§c
-,
-
-113 
-size_t
- 
-__n
-), 
-°≤˝y
-);
-
-115 
-__f‹tify_fun˘i⁄
- *
-
-116 
-	`__NTH
- (
-	$°≤˝y
- (*
-__de°
-, c⁄° *
-__§c
-, 
-size_t
- 
-__n
-))
-
-118 i‡(
-	`__bos
- (
-__de°
-Ë!(
-size_t
-) -1
-
-119 && (!
-	`__buûtö_c⁄°™t_p
- (
-__n
-Ë|| __¿> 
-	`__bos
- (
-__de°
-)))
-
-120  
-	`__°≤˝y_chk
- (
-__de°
-, 
-__§c
-, 
-__n
-, 
-	`__bos
- (__dest));
-
-121  
-	`__°≤˝y_Æüs
- (
-__de°
-, 
-__§c
-, 
-__n
-);
-
-122 
-	}
-}
-
-125 
-__f‹tify_fun˘i⁄
- *
-
-126 
-__NTH
- (
-	$°rˇt
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-))
-
-128  
-	`__buûtö___°rˇt_chk
- (
-__de°
-, 
-__§c
-, 
-	`__bos
- (__dest));
-
-129 
-	}
-}
-
-132 
-__f‹tify_fun˘i⁄
- *
-
-133 
-__NTH
- (
-	$°∫ˇt
- (*
-__ª°ri˘
- 
-__de°
-, c⁄° *__ª°ri˘ 
-__§c
-,
-
-134 
-size_t
- 
-__Àn
-))
-
-136  
-	`__buûtö___°∫ˇt_chk
- (
-__de°
-, 
-__§c
-, 
-__Àn
-, 
-	`__bos
- (__dest));
-
-137 
-	}
-}
-
-	@/usr/include/bits/types/locale_t.h
-
-19 #i‚de‡
-_BITS_TYPES_LOCALE_T_H
-
-
-20 
-	#_BITS_TYPES_LOCALE_T_H
- 1
-
-	)
-
-22 
-	~<bôs/ty≥s/__loˇÀ_t.h
->
-
-24 
-__loˇÀ_t
- 
-	tloˇÀ_t
-;
-
 	@/usr/include/linux/stddef.h
 
 4 #i‚de‡
@@ -104943,754 +103573,6 @@ __USE_XOPEN2K8
 	~<bôs/°rögs_f‹tifõd.h
 >
 
-	@/usr/include/asm-generic/int-ll64.h
-
-9 #i‚de‡
-_ASM_GENERIC_INT_LL64_H
-
-
-10 
-	#_ASM_GENERIC_INT_LL64_H
-
-
-	)
-
-12 
-	~<asm/bô•îl⁄g.h
->
-
-14 #i‚de‡
-__ASSEMBLY__
-
-
-20 
-__sig√d__
- 
-	t__s8
-;
-
-21 
-	t__u8
-;
-
-23 
-__sig√d__
- 
-	t__s16
-;
-
-24 
-	t__u16
-;
-
-26 
-__sig√d__
- 
-	t__s32
-;
-
-27 
-	t__u32
-;
-
-29 #ifde‡
-__GNUC__
-
-
-30 
-__exãnsi⁄__
- 
-__sig√d__
- 
-	t__s64
-;
-
-31 
-__exãnsi⁄__
- 
-	t__u64
-;
-
-33 
-__sig√d__
- 
-	t__s64
-;
-
-34 
-	t__u64
-;
-
-	@/usr/include/asm-generic/ioctl.h
-
-2 #i‚de‡
-_ASM_GENERIC_IOCTL_H
-
-
-3 
-	#_ASM_GENERIC_IOCTL_H
-
-
-	)
-
-23 
-	#_IOC_NRBITS
- 8
-
-	)
-
-24 
-	#_IOC_TYPEBITS
- 8
-
-	)
-
-31 #i‚de‡
-_IOC_SIZEBITS
-
-
-32 
-	#_IOC_SIZEBITS
- 14
-
-	)
-
-35 #i‚de‡
-_IOC_DIRBITS
-
-
-36 
-	#_IOC_DIRBITS
- 2
-
-	)
-
-39 
-	#_IOC_NRMASK
- ((1 << 
-_IOC_NRBITS
-)-1)
-
-	)
-
-40 
-	#_IOC_TYPEMASK
- ((1 << 
-_IOC_TYPEBITS
-)-1)
-
-	)
-
-41 
-	#_IOC_SIZEMASK
- ((1 << 
-_IOC_SIZEBITS
-)-1)
-
-	)
-
-42 
-	#_IOC_DIRMASK
- ((1 << 
-_IOC_DIRBITS
-)-1)
-
-	)
-
-44 
-	#_IOC_NRSHIFT
- 0
-
-	)
-
-45 
-	#_IOC_TYPESHIFT
- (
-_IOC_NRSHIFT
-+
-_IOC_NRBITS
-)
-
-	)
-
-46 
-	#_IOC_SIZESHIFT
- (
-_IOC_TYPESHIFT
-+
-_IOC_TYPEBITS
-)
-
-	)
-
-47 
-	#_IOC_DIRSHIFT
- (
-_IOC_SIZESHIFT
-+
-_IOC_SIZEBITS
-)
-
-	)
-
-57 #i‚de‡
-_IOC_NONE
-
-
-58 
-	#_IOC_NONE
- 0U
-
-	)
-
-61 #i‚de‡
-_IOC_WRITE
-
-
-62 
-	#_IOC_WRITE
- 1U
-
-	)
-
-65 #i‚de‡
-_IOC_READ
-
-
-66 
-	#_IOC_READ
- 2U
-
-	)
-
-69 
-	#_IOC
-(
-dú
-,
-ty≥
-,
-ƒ
-,
-size
-) \
-
-70 (((
-dú
-Ë<< 
-_IOC_DIRSHIFT
-) | \
-
-71 ((
-ty≥
-Ë<< 
-_IOC_TYPESHIFT
-) | \
-
-72 ((
-ƒ
-Ë<< 
-_IOC_NRSHIFT
-) | \
-
-73 ((
-size
-Ë<< 
-_IOC_SIZESHIFT
-))
-
-	)
-
-75 
-	#_IOC_TYPECHECK
-(
-t
-Ë(—))
-
-	)
-
-83 
-	#_IO
-(
-ty≥
-,
-ƒ
-Ë
-	`_IOC
-(
-_IOC_NONE
-,—y≥),“r),0)
-
-	)
-
-84 
-	#_IOR
-(
-ty≥
-,
-ƒ
-,
-size
-Ë
-	`_IOC
-(
-_IOC_READ
-,—y≥),“r),(
-	`_IOC_TYPECHECK
-(size)))
-
-	)
-
-85 
-	#_IOW
-(
-ty≥
-,
-ƒ
-,
-size
-Ë
-	`_IOC
-(
-_IOC_WRITE
-,—y≥),“r),(
-	`_IOC_TYPECHECK
-(size)))
-
-	)
-
-86 
-	#_IOWR
-(
-ty≥
-,
-ƒ
-,
-size
-Ë
-	`_IOC
-(
-_IOC_READ
-|
-_IOC_WRITE
-,—y≥),“r),(
-	`_IOC_TYPECHECK
-(size)))
-
-	)
-
-87 
-	#_IOR_BAD
-(
-ty≥
-,
-ƒ
-,
-size
-Ë
-	`_IOC
-(
-_IOC_READ
-,—y≥),“r),(size))
-
-	)
-
-88 
-	#_IOW_BAD
-(
-ty≥
-,
-ƒ
-,
-size
-Ë
-	`_IOC
-(
-_IOC_WRITE
-,—y≥),“r),(size))
-
-	)
-
-89 
-	#_IOWR_BAD
-(
-ty≥
-,
-ƒ
-,
-size
-Ë
-	`_IOC
-(
-_IOC_READ
-|
-_IOC_WRITE
-,—y≥),“r),(size))
-
-	)
-
-92 
-	#_IOC_DIR
-(
-ƒ
-Ë((“rË>> 
-_IOC_DIRSHIFT
-Ë& 
-_IOC_DIRMASK
-)
-
-	)
-
-93 
-	#_IOC_TYPE
-(
-ƒ
-Ë((“rË>> 
-_IOC_TYPESHIFT
-Ë& 
-_IOC_TYPEMASK
-)
-
-	)
-
-94 
-	#_IOC_NR
-(
-ƒ
-Ë((“rË>> 
-_IOC_NRSHIFT
-Ë& 
-_IOC_NRMASK
-)
-
-	)
-
-95 
-	#_IOC_SIZE
-(
-ƒ
-Ë((“rË>> 
-_IOC_SIZESHIFT
-Ë& 
-_IOC_SIZEMASK
-)
-
-	)
-
-99 
-	#IOC_IN
- (
-_IOC_WRITE
- << 
-_IOC_DIRSHIFT
-)
-
-	)
-
-100 
-	#IOC_OUT
- (
-_IOC_READ
- << 
-_IOC_DIRSHIFT
-)
-
-	)
-
-101 
-	#IOC_INOUT
- ((
-_IOC_WRITE
-|
-_IOC_READ
-Ë<< 
-_IOC_DIRSHIFT
-)
-
-	)
-
-102 
-	#IOCSIZE_MASK
- (
-_IOC_SIZEMASK
- << 
-_IOC_SIZESHIFT
-)
-
-	)
-
-103 
-	#IOCSIZE_SHIFT
- (
-_IOC_SIZESHIFT
-)
-
-	)
-
-	@/usr/include/asm/posix_types_32.h
-
-2 #i‚de‡
-_ASM_X86_POSIX_TYPES_32_H
-
-
-3 
-	#_ASM_X86_POSIX_TYPES_32_H
-
-
-	)
-
-11 
-	t__kî√l_mode_t
-;
-
-12 
-	#__kî√l_mode_t
- 
-__kî√l_mode_t
-
-
-	)
-
-14 
-	t__kî√l_ùc_pid_t
-;
-
-15 
-	#__kî√l_ùc_pid_t
- 
-__kî√l_ùc_pid_t
-
-
-	)
-
-17 
-	t__kî√l_uid_t
-;
-
-18 
-	t__kî√l_gid_t
-;
-
-19 
-	#__kî√l_uid_t
- 
-__kî√l_uid_t
-
-
-	)
-
-21 
-	t__kî√l_ﬁd_dev_t
-;
-
-22 
-	#__kî√l_ﬁd_dev_t
- 
-__kî√l_ﬁd_dev_t
-
-
-	)
-
-24 
-	~<asm-gíîic/posix_ty≥s.h
->
-
-	@/usr/include/asm/posix_types_64.h
-
-2 #i‚de‡
-_ASM_X86_POSIX_TYPES_64_H
-
-
-3 
-	#_ASM_X86_POSIX_TYPES_64_H
-
-
-	)
-
-11 
-	t__kî√l_ﬁd_uid_t
-;
-
-12 
-	t__kî√l_ﬁd_gid_t
-;
-
-13 
-	#__kî√l_ﬁd_uid_t
- 
-__kî√l_ﬁd_uid_t
-
-
-	)
-
-15 
-	t__kî√l_ﬁd_dev_t
-;
-
-16 
-	#__kî√l_ﬁd_dev_t
- 
-__kî√l_ﬁd_dev_t
-
-
-	)
-
-18 
-	~<asm-gíîic/posix_ty≥s.h
->
-
-	@/usr/include/asm/posix_types_x32.h
-
-2 #i‚de‡
-_ASM_X86_POSIX_TYPES_X32_H
-
-
-3 
-	#_ASM_X86_POSIX_TYPES_X32_H
-
-
-	)
-
-14 
-	t__kî√l_l⁄g_t
-;
-
-15 
-	t__kî√l_ul⁄g_t
-;
-
-16 
-	#__kî√l_l⁄g_t
- 
-__kî√l_l⁄g_t
-
-
-	)
-
-18 
-	~<asm/posix_ty≥s_64.h
->
-
-	@/usr/include/bits/strings_fortified.h
-
-19 #i‚de‡
-__STRINGS_FORTIFIED
-
-
-20 
-	#__STRINGS_FORTIFIED
- 1
-
-	)
-
-22 
-__f‹tify_fun˘i⁄
- 
-
-23 
-__NTH
- (
-	$bc›y
- (c⁄° *
-__§c
-, *
-__de°
-, 
-size_t
- 
-__Àn
-))
-
-25 (Ë
-	`__buûtö___memmove_chk
- (
-__de°
-, 
-__§c
-, 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-26 
-	}
-}
-
-28 
-__f‹tify_fun˘i⁄
- 
-
-29 
-__NTH
- (
-	$bzîo
- (*
-__de°
-, 
-size_t
- 
-__Àn
-))
-
-31 (Ë
-	`__buûtö___mem£t_chk
- (
-__de°
-, '\0', 
-__Àn
-, 
-	`__bos0
- (__dest));
-
-32 
-	}
-}
-
-	@/usr/include/bits/types/__locale_t.h
-
-20 #i‚de‡
-_BITS_TYPES___LOCALE_T_H
-
-
-21 
-	#_BITS_TYPES___LOCALE_T_H
- 1
-
-	)
-
-28 
-	s__loˇÀ_°ru˘
-
-
-31 
-__loˇÀ_d©a
- *
-	m__loˇÀs
-[13];
-
-34 c⁄° *
-	m__˘y≥_b
-;
-
-35 c⁄° *
-	m__˘y≥_tﬁowî
-;
-
-36 c⁄° *
-	m__˘y≥_touµî
-;
-
-39 c⁄° *
-	m__«mes
-[13];
-
-42 
-__loˇÀ_°ru˘
- *
-	t__loˇÀ_t
-;
-
 	@/usr/include/features.h
 
 18 #i‚def 
@@ -105799,21 +103681,17 @@ __KERNEL_STRICT_NAMES
 __GLIBC_USE_DEPRECATED_GETS
 
 
-143 #unde‡
-__GLIBC_USE_DEPRECATED_SCANF
-
-
-147 #i‚de‡
+146 #i‚de‡
 _LOOSE_KERNEL_NAMES
 
 
-148 
+147 
 	#__KERNEL_STRICT_NAMES
 
 
 	)
 
-158 #i‡
+157 #i‡
 deföed
  
 __GNUC__
@@ -105821,7 +103699,7 @@ __GNUC__
 __GNUC_MINOR__
 
 
-159 
+158 
 	#__GNUC_PREREQ
 (
 maj
@@ -105829,7 +103707,7 @@ maj
 mö
 ) \
 
-160 ((
+159 ((
 __GNUC__
  << 16Ë+ 
 __GNUC_MINOR__
@@ -105841,7 +103719,7 @@ mö
 
 	)
 
-162 
+161 
 	#__GNUC_PREREQ
 (
 maj
@@ -105851,7 +103729,7 @@ mö
 
 	)
 
-169 #i‡
+168 #i‡
 deföed
  
 __˛™g_maj‹__
@@ -105859,7 +103737,7 @@ __˛™g_maj‹__
 __˛™g_mö‹__
 
 
-170 
+169 
 	#__glibc_˛™g_¥îeq
 (
 maj
@@ -105867,7 +103745,7 @@ maj
 mö
 ) \
 
-171 ((
+170 ((
 __˛™g_maj‹__
  << 16Ë+ 
 __˛™g_mö‹__
@@ -105879,7 +103757,7 @@ mö
 
 	)
 
-173 
+172 
 	#__glibc_˛™g_¥îeq
 (
 maj
@@ -105889,7 +103767,7 @@ mö
 
 	)
 
-177 
+176 
 	#__GLIBC_USE
 (
 F
@@ -105899,7 +103777,7 @@ __GLIBC_USE_
 	)
 F
 
-183 #i‡(
+182 #i‡(
 deföed
  
 _BSD_SOURCE
@@ -105907,147 +103785,145 @@ _BSD_SOURCE
 _SVID_SOURCE
 ) \
 
-184 && !
+183 && !
 deföed
  
 	g_DEFAULT_SOURCE
 
 
-186 #unde‡
+185 #unde‡
 _DEFAULT_SOURCE
 
 
-187 
+186 
 	#_DEFAULT_SOURCE
  1
 
 	)
 
-191 #ifde‡
+190 #ifde‡
 _GNU_SOURCE
 
 
-192 #unde‡
+191 #unde‡
 _ISOC95_SOURCE
 
 
-193 
+192 
 	#_ISOC95_SOURCE
  1
 
 	)
 
-194 #unde‡
+193 #unde‡
 _ISOC99_SOURCE
 
 
-195 
+194 
 	#_ISOC99_SOURCE
  1
 
 	)
 
-196 #unde‡
+195 #unde‡
 _ISOC11_SOURCE
 
 
-197 
+196 
 	#_ISOC11_SOURCE
  1
 
 	)
 
-198 #unde‡
+197 #unde‡
 _POSIX_SOURCE
 
 
-199 
+198 
 	#_POSIX_SOURCE
  1
 
 	)
 
-200 #unde‡
+199 #unde‡
 _POSIX_C_SOURCE
 
 
-201 
+200 
 	#_POSIX_C_SOURCE
  200809L
 
 	)
 
-202 #unde‡
+201 #unde‡
 _XOPEN_SOURCE
 
 
-203 
+202 
 	#_XOPEN_SOURCE
  700
 
 	)
 
-204 #unde‡
+203 #unde‡
 _XOPEN_SOURCE_EXTENDED
 
 
-205 
+204 
 	#_XOPEN_SOURCE_EXTENDED
  1
 
 	)
 
-206 #unde‡
+205 #unde‡
 _LARGEFILE64_SOURCE
 
 
-207 
+206 
 	#_LARGEFILE64_SOURCE
  1
 
 	)
 
-208 #unde‡
+207 #unde‡
 _DEFAULT_SOURCE
 
 
-209 
+208 
 	#_DEFAULT_SOURCE
  1
 
 	)
 
-210 #unde‡
+209 #unde‡
 _ATFILE_SOURCE
 
 
-211 
+210 
 	#_ATFILE_SOURCE
  1
 
 	)
 
-216 #i‡(
+215 #i‡(
 deföed
  
 _DEFAULT_SOURCE
  \
 
-217 || (!
+216 || (!
 deföed
  
 	g__STRICT_ANSI__
  \
 
-218 && !
+217 && !
 deföed
  
 	g_ISOC99_SOURCE
- && !deföed 
-	g_ISOC11_SOURCE
  \
 
-219 && !
+218 && !
 deföed
  
 	g_POSIX_SOURCE
@@ -106055,41 +103931,41 @@ deföed
 	g_POSIX_C_SOURCE
  \
 
-220 && !
+219 && !
 deföed
  
 	g_XOPEN_SOURCE
 ))
 
-221 #unde‡
+220 #unde‡
 _DEFAULT_SOURCE
 
 
-222 
+221 
 	#_DEFAULT_SOURCE
  1
 
 	)
 
-226 #i‡(
+225 #i‡(
 deföed
  
 _ISOC11_SOURCE
  \
 
-227 || (
+226 || (
 deföed
  
 	g__STDC_VERSION__
  && __STDC_VERSION__ >= 201112L))
 
-228 
+227 
 	#__USE_ISOC11
  1
 
 	)
 
-232 #i‡(
+231 #i‡(
 deföed
  
 _ISOC99_SOURCE
@@ -106097,19 +103973,19 @@ _ISOC99_SOURCE
 _ISOC11_SOURCE
  \
 
-233 || (
+232 || (
 deföed
  
 __STDC_VERSION__
  && __STDC_VERSION__ >= 199901L))
 
-234 
+233 
 	#__USE_ISOC99
  1
 
 	)
 
-238 #i‡(
+237 #i‡(
 deföed
  
 _ISOC99_SOURCE
@@ -106117,33 +103993,33 @@ _ISOC99_SOURCE
 _ISOC11_SOURCE
  \
 
-239 || (
+238 || (
 deföed
  
 __STDC_VERSION__
  && __STDC_VERSION__ >= 199409L))
 
-240 
+239 
 	#__USE_ISOC95
  1
 
 	)
 
-243 #ifde‡
+242 #ifde‡
 __˝lu•lus
 
 
-245 #i‡
+244 #i‡
 __˝lu•lus
  >= 201703L
 
-246 
+245 
 	#__USE_ISOC11
  1
 
 	)
 
-250 #i‡
+249 #i‡
 __˝lu•lus
  >201103L || 
 deföed
@@ -106151,23 +104027,23 @@ deföed
 __GXX_EXPERIMENTAL_CXX0X__
 
 
-251 
+250 
 	#__USE_ISOCXX11
  1
 
 	)
 
-252 
+251 
 	#__USE_ISOC99
  1
 
 	)
 
-259 #ifde‡
+258 #ifde‡
 _DEFAULT_SOURCE
 
 
-260 #i‡!
+259 #i‡!
 deföed
  
 _POSIX_SOURCE
@@ -106175,45 +104051,45 @@ _POSIX_SOURCE
 _POSIX_C_SOURCE
 
 
-261 
+260 
 	#__USE_POSIX_IMPLICITLY
  1
 
 	)
 
-263 #unde‡
+262 #unde‡
 _POSIX_SOURCE
 
 
-264 
+263 
 	#_POSIX_SOURCE
  1
 
 	)
 
-265 #unde‡
+264 #unde‡
 _POSIX_C_SOURCE
 
 
-266 
+265 
 	#_POSIX_C_SOURCE
  200809L
 
 	)
 
-269 #i‡((!
+268 #i‡((!
 deföed
  
 __STRICT_ANSI__
  \
 
-270 || (
+269 || (
 deföed
  
 _XOPEN_SOURCE
  && (_XOPEN_SOURCE - 0) >= 500)) \
 
-271 && !
+270 && !
 deföed
  
 _POSIX_SOURCE
@@ -106221,67 +104097,67 @@ _POSIX_SOURCE
 _POSIX_C_SOURCE
 )
 
-272 
+271 
 	#_POSIX_SOURCE
  1
 
 	)
 
-273 #i‡
+272 #i‡
 deföed
  
 _XOPEN_SOURCE
  && (_XOPEN_SOURCE - 0) < 500
 
-274 
+273 
 	#_POSIX_C_SOURCE
  2
 
 	)
 
-275 #ñi‡
+274 #ñi‡
 deföed
  
 _XOPEN_SOURCE
  && (_XOPEN_SOURCE - 0) < 600
 
-276 
+275 
 	#_POSIX_C_SOURCE
  199506L
 
 	)
 
-277 #ñi‡
+276 #ñi‡
 deföed
  
 _XOPEN_SOURCE
  && (_XOPEN_SOURCE - 0) < 700
 
-278 
+277 
 	#_POSIX_C_SOURCE
  200112L
 
 	)
 
-280 
+279 
 	#_POSIX_C_SOURCE
  200809L
 
 	)
 
-282 
+281 
 	#__USE_POSIX_IMPLICITLY
  1
 
 	)
 
-291 #i‡((!
+290 #i‡((!
 deföed
  
 _POSIX_C_SOURCE
  || (_POSIX_C_SOURCE - 0) < 199506L) \
 
-292 && (
+291 && (
 deföed
  
 _REENTRANT
@@ -106289,47 +104165,47 @@ _REENTRANT
 _THREAD_SAFE
 ))
 
-293 
+292 
 	#_POSIX_SOURCE
  1
 
 	)
 
-294 #unde‡
+293 #unde‡
 _POSIX_C_SOURCE
 
 
-295 
+294 
 	#_POSIX_C_SOURCE
  199506L
 
 	)
 
-298 #i‡(
+297 #i‡(
 deföed
  
 _POSIX_SOURCE
  \
 
-299 || (
+298 || (
 deföed
  
 _POSIX_C_SOURCE
  && _POSIX_C_SOURCE >= 1) \
 
-300 || 
+299 || 
 deföed
  
 _XOPEN_SOURCE
 )
 
-301 
+300 
 	#__USE_POSIX
  1
 
 	)
 
-304 #i‡
+303 #i‡
 deföed
  
 _POSIX_C_SOURCE
@@ -106337,321 +104213,289 @@ _POSIX_C_SOURCE
 _XOPEN_SOURCE
 
 
-305 
+304 
 	#__USE_POSIX2
  1
 
 	)
 
-308 #i‡
+307 #i‡
 deföed
  
 _POSIX_C_SOURCE
  && (_POSIX_C_SOURCE - 0) >= 199309L
 
-309 
+308 
 	#__USE_POSIX199309
  1
 
 	)
 
-312 #i‡
+311 #i‡
 deföed
  
 _POSIX_C_SOURCE
  && (_POSIX_C_SOURCE - 0) >= 199506L
 
-313 
+312 
 	#__USE_POSIX199506
  1
 
 	)
 
-316 #i‡
+315 #i‡
 deföed
  
 _POSIX_C_SOURCE
  && (_POSIX_C_SOURCE - 0) >= 200112L
 
-317 
+316 
 	#__USE_XOPEN2K
  1
 
 	)
 
-318 #unde‡
+317 #unde‡
 __USE_ISOC95
 
 
-319 
+318 
 	#__USE_ISOC95
  1
 
 	)
 
-320 #unde‡
+319 #unde‡
 __USE_ISOC99
 
 
-321 
+320 
 	#__USE_ISOC99
  1
 
 	)
 
-324 #i‡
+323 #i‡
 deföed
  
 _POSIX_C_SOURCE
  && (_POSIX_C_SOURCE - 0) >= 200809L
 
-325 
+324 
 	#__USE_XOPEN2K8
  1
 
 	)
 
-326 #unde‡
+325 #unde‡
 _ATFILE_SOURCE
 
 
-327 
+326 
 	#_ATFILE_SOURCE
  1
 
 	)
 
-330 #ifdef 
+329 #ifdef 
 _XOPEN_SOURCE
 
 
-331 
+330 
 	#__USE_XOPEN
  1
 
 	)
 
-332 #i‡(
+331 #i‡(
 _XOPEN_SOURCE
  - 0) >= 500
 
-333 
+332 
 	#__USE_XOPEN_EXTENDED
  1
 
 	)
 
-334 
+333 
 	#__USE_UNIX98
  1
 
 	)
 
-335 #unde‡
+334 #unde‡
 _LARGEFILE_SOURCE
 
 
-336 
+335 
 	#_LARGEFILE_SOURCE
  1
 
 	)
 
-337 #i‡(
+336 #i‡(
 _XOPEN_SOURCE
  - 0) >= 600
 
-338 #i‡(
+337 #i‡(
 _XOPEN_SOURCE
  - 0) >= 700
 
-339 
+338 
 	#__USE_XOPEN2K8
  1
 
 	)
 
-340 
+339 
 	#__USE_XOPEN2K8XSI
  1
 
 	)
 
-342 
+341 
 	#__USE_XOPEN2K
  1
 
 	)
 
-343 
+342 
 	#__USE_XOPEN2KXSI
  1
 
 	)
 
-344 #unde‡
+343 #unde‡
 __USE_ISOC95
 
 
-345 
+344 
 	#__USE_ISOC95
  1
 
 	)
 
-346 #unde‡
+345 #unde‡
 __USE_ISOC99
 
 
-347 
+346 
 	#__USE_ISOC99
  1
 
 	)
 
-350 #ifde‡
+349 #ifde‡
 _XOPEN_SOURCE_EXTENDED
 
 
-351 
+350 
 	#__USE_XOPEN_EXTENDED
  1
 
 	)
 
-356 #ifde‡
+355 #ifde‡
 _LARGEFILE_SOURCE
 
 
-357 
+356 
 	#__USE_LARGEFILE
  1
 
 	)
 
-360 #ifde‡
+359 #ifde‡
 _LARGEFILE64_SOURCE
 
 
-361 
+360 
 	#__USE_LARGEFILE64
  1
 
 	)
 
-364 #i‡
+363 #i‡
 deföed
  
 _FILE_OFFSET_BITS
  && _FILE_OFFSET_BITS == 64
 
-365 
+364 
 	#__USE_FILE_OFFSET64
  1
 
 	)
 
-368 #i‡
+367 #i‡
 deföed
  
 _DEFAULT_SOURCE
 
 
-369 
+368 
 	#__USE_MISC
  1
 
 	)
 
-372 #ifdef 
+371 #ifdef 
 _ATFILE_SOURCE
 
 
-373 
+372 
 	#__USE_ATFILE
  1
 
 	)
 
-376 #ifdef 
+375 #ifdef 
 _GNU_SOURCE
 
 
-377 
+376 
 	#__USE_GNU
  1
 
 	)
 
-380 #i‡
+379 #i‡
 deföed
  
 _FORTIFY_SOURCE
- && _FORTIFY_SOURCE > 0
+ && _FORTIFY_SOURCE > 0 \
 
-381 #i‡!
-deföed
- 
-__OPTIMIZE__
- || __OPTIMIZE__ <= 0
-
-382 #w¨nög 
-_FORTIFY_SOURCE
- 
-ªquúes
- 
-compûög
- 
-wôh
- 
-›timiz©i⁄
- (-
-O
-)
-
-383 #ñi‡!
+380 && 
 __GNUC_PREREQ
- (4, 1)
-
-384 #w¨nög 
-_FORTIFY_SOURCE
+ (4, 1Ë&& 
+deföed
  
-ªquúes
- 
-GCC
- 4.1 
-‹
- 
-œãr
+	g__OPTIMIZE__
+ && __OPTIMIZE__ > 0
 
-
-385 #ñi‡
+381 #i‡
 _FORTIFY_SOURCE
  > 1
 
-386 
+382 
 	#__USE_FORTIFY_LEVEL
  2
 
 	)
 
-388 
+384 
 	#__USE_FORTIFY_LEVEL
  1
 
 	)
 
-391 #i‚de‡
-__USE_FORTIFY_LEVEL
-
-
-392 
+387 
 	#__USE_FORTIFY_LEVEL
  0
 
 	)
 
-399 #i‡
+394 #i‡
 deföed
  
 __˝lu•lus
@@ -106659,83 +104503,45 @@ __˝lu•lus
 __USE_ISOC11
 
 
-400 
+395 
 	#__GLIBC_USE_DEPRECATED_GETS
  0
 
 	)
 
-402 
+397 
 	#__GLIBC_USE_DEPRECATED_GETS
  1
 
 	)
 
-417 #i‡
-deföed
- 
-__USE_GNU
- && \
-
-418 (
-deföed
- 
-	g__˝lu•lus
- \
-
-419 ? (
-	g__˝lu•lus
- < 201103L && !
-deföed
- 
-	g__GXX_EXPERIMENTAL_CXX0X__
-) \
-
-420 : (!
-deföed
- 
-__STDC_VERSION__
- || __STDC_VERSION__ < 199901L))
-
-421 
-	#__GLIBC_USE_DEPRECATED_SCANF
- 1
-
-	)
-
-423 
-	#__GLIBC_USE_DEPRECATED_SCANF
- 0
-
-	)
-
-428 
+402 
 	~<°dc-¥edef.h
 >
 
-436 #unde‡
+410 #unde‡
 __GNU_LIBRARY__
 
 
-437 
+411 
 	#__GNU_LIBRARY__
  6
 
 	)
 
-441 
+415 
 	#__GLIBC__
  2
 
 	)
 
-442 
+416 
 	#__GLIBC_MINOR__
- 29
+ 27
 
 	)
 
-444 
+418 
 	#__GLIBC_PREREQ
 (
 maj
@@ -106743,7 +104549,7 @@ maj
 mö
 ) \
 
-445 ((
+419 ((
 __GLIBC__
  << 16Ë+ 
 __GLIBC_MINOR__
@@ -106755,19 +104561,19 @@ mö
 
 	)
 
-448 #i‚de‡
+422 #i‚de‡
 __ASSEMBLER__
 
 
-449 #i‚de‡
+423 #i‚de‡
 _SYS_CDEFS_H
 
 
-450 
+424 
 	~<sys/cdefs.h
 >
 
-455 #i‡
+429 #i‡
 deföed
  
 __USE_FILE_OFFSET64
@@ -106775,19 +104581,19 @@ __USE_FILE_OFFSET64
 __REDIRECT
 
 
-456 
+430 
 	#__USE_LARGEFILE
  1
 
 	)
 
-457 
+431 
 	#__USE_LARGEFILE64
  1
 
 	)
 
-463 #i‡
+437 #i‡
 __GNUC_PREREQ
  (2, 7Ë&& 
 deföed
@@ -106795,7 +104601,7 @@ deföed
 __OPTIMIZE__
  \
 
-464 && !
+438 && !
 deföed
  
 	g__OPTIMIZE_SIZE__
@@ -106803,316 +104609,20 @@ deföed
 	g__NO_INLINE__
  \
 
-465 && 
+439 && 
 deföed
  
 	g__exã∫_ölöe
 
 
-466 
+440 
 	#__USE_EXTERN_INLINES
  1
 
 	)
 
-474 
+448 
 	~<gnu/°ubs.h
->
-
-	@/usr/include/asm-generic/posix_types.h
-
-2 #i‚de‡
-__ASM_GENERIC_POSIX_TYPES_H
-
-
-3 
-	#__ASM_GENERIC_POSIX_TYPES_H
-
-
-	)
-
-5 
-	~<asm/bô•îl⁄g.h
->
-
-14 #i‚de‡
-__kî√l_l⁄g_t
-
-
-15 
-	t__kî√l_l⁄g_t
-;
-
-16 
-	t__kî√l_ul⁄g_t
-;
-
-19 #i‚de‡
-__kî√l_öo_t
-
-
-20 
-__kî√l_ul⁄g_t
- 
-	t__kî√l_öo_t
-;
-
-23 #i‚de‡
-__kî√l_mode_t
-
-
-24 
-	t__kî√l_mode_t
-;
-
-27 #i‚de‡
-__kî√l_pid_t
-
-
-28 
-	t__kî√l_pid_t
-;
-
-31 #i‚de‡
-__kî√l_ùc_pid_t
-
-
-32 
-	t__kî√l_ùc_pid_t
-;
-
-35 #i‚de‡
-__kî√l_uid_t
-
-
-36 
-	t__kî√l_uid_t
-;
-
-37 
-	t__kî√l_gid_t
-;
-
-40 #i‚de‡
-__kî√l_su£c⁄ds_t
-
-
-41 
-__kî√l_l⁄g_t
- 
-	t__kî√l_su£c⁄ds_t
-;
-
-44 #i‚de‡
-__kî√l_daddr_t
-
-
-45 
-	t__kî√l_daddr_t
-;
-
-48 #i‚de‡
-__kî√l_uid32_t
-
-
-49 
-	t__kî√l_uid32_t
-;
-
-50 
-	t__kî√l_gid32_t
-;
-
-53 #i‚de‡
-__kî√l_ﬁd_uid_t
-
-
-54 
-__kî√l_uid_t
- 
-	t__kî√l_ﬁd_uid_t
-;
-
-55 
-__kî√l_gid_t
- 
-	t__kî√l_ﬁd_gid_t
-;
-
-58 #i‚de‡
-__kî√l_ﬁd_dev_t
-
-
-59 
-	t__kî√l_ﬁd_dev_t
-;
-
-66 #i‚de‡
-__kî√l_size_t
-
-
-67 #i‡
-__BITS_PER_LONG
- != 64
-
-68 
-	t__kî√l_size_t
-;
-
-69 
-	t__kî√l_ssize_t
-;
-
-70 
-	t__kî√l_±rdiff_t
-;
-
-72 
-__kî√l_ul⁄g_t
- 
-	t__kî√l_size_t
-;
-
-73 
-__kî√l_l⁄g_t
- 
-	t__kî√l_ssize_t
-;
-
-74 
-__kî√l_l⁄g_t
- 
-	t__kî√l_±rdiff_t
-;
-
-78 #i‚de‡
-__kî√l_fsid_t
-
-
-80 
-	mvÆ
-[2];
-
-81 } 
-	t__kî√l_fsid_t
-;
-
-87 
-__kî√l_l⁄g_t
- 
-	t__kî√l_off_t
-;
-
-88 
-	t__kî√l_loff_t
-;
-
-89 
-__kî√l_l⁄g_t
- 
-	t__kî√l_time_t
-;
-
-90 
-	t__kî√l_time64_t
-;
-
-91 
-__kî√l_l⁄g_t
- 
-	t__kî√l_˛ock_t
-;
-
-92 
-	t__kî√l_timî_t
-;
-
-93 
-	t__kî√l_˛ockid_t
-;
-
-94 * 
-	t__kî√l_ˇddr_t
-;
-
-95 
-	t__kî√l_uid16_t
-;
-
-96 
-	t__kî√l_gid16_t
-;
-
-	@/usr/include/asm/bitsperlong.h
-
-2 #i‚de‡
-__ASM_X86_BITSPERLONG_H
-
-
-3 
-	#__ASM_X86_BITSPERLONG_H
-
-
-	)
-
-5 #i‡
-deföed
-(
-__x86_64__
-Ë&& !deföed(
-__ILP32__
-)
-
-6 
-	#__BITS_PER_LONG
- 64
-
-	)
-
-8 
-	#__BITS_PER_LONG
- 32
-
-	)
-
-11 
-	~<asm-gíîic/bô•îl⁄g.h
->
-
-	@/usr/include/gnu/stubs.h
-
-6 #i‡!
-deföed
- 
-__x86_64__
-
-
-7 
-	~<gnu/°ubs-32.h
->
-
-9 #i‡
-deföed
- 
-__x86_64__
- && deföed 
-__LP64__
-
-
-10 
-	~<gnu/°ubs-64.h
->
-
-12 #i‡
-deföed
- 
-__x86_64__
- && deföed 
-__ILP32__
-
-
-13 
-	~<gnu/°ubs-x32.h
 >
 
 	@/usr/include/stdc-predef.h
@@ -107173,1975 +104683,9 @@ __GCC_IEC_559_COMPLEX
 
 	)
 
-	@/usr/include/sys/cdefs.h
-
-18 #i‚def 
-_SYS_CDEFS_H
-
-
-19 
-	#_SYS_CDEFS_H
- 1
-
-	)
-
-22 #i‚de‡
-_FEATURES_H
-
-
-23 
-	~<„©uªs.h
->
-
-29 #i‡
-deföed
- 
-__GNUC__
- && !deföed 
-__STDC__
-
-
-34 #unde‡
-__P
-
-
-35 #unde‡
-__PMT
-
-
-37 #ifde‡
-__GNUC__
-
-
-41 #i‡
-__GNUC_PREREQ
- (4, 6Ë&& !
-deföed
- 
-_LIBC
-
-
-42 
-	#__LEAF
- , 
-__Àaf__
-
-
-	)
-
-43 
-	#__LEAF_ATTR
- 
-	`__©åibuã__
- ((
-__Àaf__
-))
-
-	)
-
-45 
-	#__LEAF
-
-
-	)
-
-46 
-	#__LEAF_ATTR
-
-
-	)
-
-54 #i‡!
-deföed
- 
-__˝lu•lus
- && 
-__GNUC_PREREQ
- (3, 3)
-
-55 
-	#__THROW
- 
-	`__©åibuã__
- ((
-__nŸhrow__
- 
-__LEAF
-))
-
-	)
-
-56 
-	#__THROWNL
- 
-	`__©åibuã__
- ((
-__nŸhrow__
-))
-
-	)
-
-57 
-	#__NTH
-(
-f˘
-Ë
-	`__©åibuã__
- ((
-__nŸhrow__
- 
-__LEAF
-)Ë
-	)
-fct
-
-58 
-	#__NTHNL
-(
-f˘
-Ë
-	`__©åibuã__
- ((
-__nŸhrow__
-)Ë
-	)
-fct
-
-60 #i‡
-deföed
- 
-__˝lu•lus
- && 
-__GNUC_PREREQ
- (2,8)
-
 61 
-	#__THROW
- 
-	`throw
- ()
-
-	)
-
-62 
-	#__THROWNL
- 
-	`throw
- ()
-
-	)
-
-63 
-	#__NTH
-(
-f˘
-Ë
-__LEAF_ATTR
- f˘ 
-	`throw
- ()
-
-	)
-
-64 
-	#__NTHNL
-(
-f˘
-Ëf˘ 
-	`throw
- ()
-
-	)
-
-66 
-	#__THROW
-
-
-	)
-
-67 
-	#__THROWNL
-
-
-	)
-
-68 
-	#__NTH
-(
-f˘
-Ë
-	)
-fct
-
-69 
-	#__NTHNL
-(
-f˘
-Ë
-	)
-fct
-
-75 #i‡(
-deföed
- 
-__˝lu•lus
- \
-
-76 || (
-deföed
- 
-	g__STDC_VERSION__
- && __STDC_VERSION__ >= 199901L))
-
-77 
-	#__ölöe
- 
-ölöe
-
-
-	)
-
-79 
-	#__ölöe
-
-
-	)
-
-82 
-	#__THROW
-
-
-	)
-
-83 
-	#__THROWNL
-
-
-	)
-
-84 
-	#__NTH
-(
-f˘
-Ë
-	)
-fct
-
-91 #i‡
-deföed
- 
-__˛™g__
- && deföed 
-__has_exãnsi⁄
-
-
-92 
-	#__glibc_˛™g_has_exãnsi⁄
-(
-ext
-Ë
-	`__has_exãnsi⁄
- (ext)
-
-	)
-
-94 
-	#__glibc_˛™g_has_exãnsi⁄
-(
-ext
-Ë0
-
-	)
-
-99 
-	#__P
-(
-¨gs
-Ë
-	)
-args
-
-100 
-	#__PMT
-(
-¨gs
-Ë
-	)
-args
-
-105 
-	#__CONCAT
-(
-x
-,
-y
-Ëx ## 
-	)
-y
-
-106 
-	#__STRING
-(
-x
-Ë#x
-
-	)
-
-109 
-	#__±r_t
- *
-
-	)
-
-113 #ifdef 
-__˝lu•lus
-
-
-114 
-	#__BEGIN_DECLS
- "C" {
-
-	)
-
-115 
-	#__END_DECLS
- }
-
-	)
-
-117 
-	#__BEGIN_DECLS
-
-
-	)
-
-118 
-	#__END_DECLS
-
-
-	)
-
-123 
-	#__bos
-(
-±r
-Ë
-	`__buûtö_obje˘_size
- (±r, 
-__USE_FORTIFY_LEVEL
- > 1)
-
-	)
-
-124 
-	#__bos0
-(
-±r
-Ë
-	`__buûtö_obje˘_size
- (±r, 0)
-
-	)
-
-126 #i‡
-__GNUC_PREREQ
- (4,3)
-
-127 
-	#__w¨nde˛
-(
-«me
-, 
-msg
-) \
-
-128 
-	`«me
- (Ë
-	`__©åibuã__
-((
-	`__w¨nög__
- (
-msg
-)))
-
-	)
-
-129 
-	#__w¨«âr
-(
-msg
-Ë
-	`__©åibuã__
-((
-	`__w¨nög__
- (msg)))
-
-	)
-
-130 
-	#__îr‹de˛
-(
-«me
-, 
-msg
-) \
-
-131 
-	`«me
- (Ë
-	`__©åibuã__
-((
-	`__îr‹__
- (
-msg
-)))
-
-	)
-
-133 
-	#__w¨nde˛
-(
-«me
-, 
-msg
-Ë
-	`«me
- ()
-
-	)
-
-134 
-	#__w¨«âr
-(
-msg
-)
-
-	)
-
-135 
-	#__îr‹de˛
-(
-«me
-, 
-msg
-Ë
-	`«me
- ()
-
-	)
-
-142 #i‡
-deföed
- 
-__STDC_VERSION__
- && __STDC_VERSION__ >= 199901L
-
-143 
-	#__Êex¨r
- []
-
-	)
-
-144 
-	#__glibc_c99_Êex¨r_avaûabÀ
+	#__STDC_NO_THREADS__
  1
-
-	)
-
-145 #ñi‡
-__GNUC_PREREQ
- (2,97)
-
-148 
-	#__Êex¨r
- []
-
-	)
-
-149 
-	#__glibc_c99_Êex¨r_avaûabÀ
- 1
-
-	)
-
-150 #ñi‡
-deföed
- 
-__GNUC__
-
-
-153 
-	#__Êex¨r
- [0]
-
-	)
-
-154 
-	#__glibc_c99_Êex¨r_avaûabÀ
- 1
-
-	)
-
-157 
-	#__Êex¨r
- [1]
-
-	)
-
-158 
-	#__glibc_c99_Êex¨r_avaûabÀ
- 0
-
-	)
-
-172 #i‡
-deföed
- 
-__GNUC__
- && __GNUC__ >= 2
-
-174 
-	#__REDIRECT
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-Ë«mê¥Ÿÿ
-	`__asm__
- (
-	`__ASMNAME
- (#Æüs))
-
-	)
-
-175 #ifde‡
-__˝lu•lus
-
-
-176 
-	#__REDIRECT_NTH
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-177 
-«me
- 
-¥Ÿo
- 
-__THROW
- 
-	`__asm__
- (
-	`__ASMNAME
- (#Æüs))
-
-	)
-
-178 
-	#__REDIRECT_NTHNL
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-179 
-«me
- 
-¥Ÿo
- 
-__THROWNL
- 
-	`__asm__
- (
-	`__ASMNAME
- (#Æüs))
-
-	)
-
-181 
-	#__REDIRECT_NTH
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-182 
-«me
- 
-¥Ÿo
- 
-	`__asm__
- (
-	`__ASMNAME
- (#Æüs)Ë
-__THROW
-
-
-	)
-
-183 
-	#__REDIRECT_NTHNL
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-184 
-«me
- 
-¥Ÿo
- 
-	`__asm__
- (
-	`__ASMNAME
- (#Æüs)Ë
-__THROWNL
-
-
-	)
-
-186 
-	#__ASMNAME
-(
-˙ame
-Ë
-	`__ASMNAME2
- (
-__USER_LABEL_PREFIX__
-, c«me)
-
-	)
-
-187 
-	#__ASMNAME2
-(
-¥efix
-, 
-˙ame
-Ë
-	`__STRING
- (¥efixË
-	)
-cname
-
-200 #i‡!
-deföed
- 
-__GNUC__
- || __GNUC__ < 2
-
-201 
-	#__©åibuã__
-(
-xyz
-Ë
-
-	)
-
-207 #i‡
-__GNUC_PREREQ
- (2,96)
-
-208 
-	#__©åibuã_mÆloc__
- 
-	`__©åibuã__
- ((
-__mÆloc__
-))
-
-	)
-
-210 
-	#__©åibuã_mÆloc__
-
-
-	)
-
-215 #i‡
-__GNUC_PREREQ
- (4, 3)
-
-216 
-	#__©åibuã_Æloc_size__
-(
-∑øms
-) \
-
-217 
-	`__©åibuã__
- ((
-__Æloc_size__
- 
-∑øms
-))
-
-	)
-
-219 
-	#__©åibuã_Æloc_size__
-(
-∑øms
-Ë
-
-	)
-
-225 #i‡
-__GNUC_PREREQ
- (2,96)
-
-226 
-	#__©åibuã_puª__
- 
-	`__©åibuã__
- ((
-__puª__
-))
-
-	)
-
-228 
-	#__©åibuã_puª__
-
-
-	)
-
-232 #i‡
-__GNUC_PREREQ
- (2,5)
-
-233 
-	#__©åibuã_c⁄°__
- 
-	`__©åibuã__
- ((
-__c⁄°__
-))
-
-	)
-
-235 
-	#__©åibuã_c⁄°__
-
-
-	)
-
-241 #i‡
-__GNUC_PREREQ
- (3,1)
-
-242 
-	#__©åibuã_u£d__
- 
-	`__©åibuã__
- ((
-__u£d__
-))
-
-	)
-
-243 
-	#__©åibuã_noölöe__
- 
-	`__©åibuã__
- ((
-__noölöe__
-))
-
-	)
-
-245 
-	#__©åibuã_u£d__
- 
-	`__©åibuã__
- ((
-__unu£d__
-))
-
-	)
-
-246 
-	#__©åibuã_noölöe__
-
-
-	)
-
-250 #i‡
-__GNUC_PREREQ
- (3,2)
-
-251 
-	#__©åibuã_dïªˇãd__
- 
-	`__©åibuã__
- ((
-__dïªˇãd__
-))
-
-	)
-
-253 
-	#__©åibuã_dïªˇãd__
-
-
-	)
-
-259 #i‡
-__GNUC_PREREQ
- (4,5) || \
-
-260 
-	$__glibc_˛™g_has_exãnsi⁄
- (
-__©åibuã_dïªˇãd_wôh_mesßge__
-)
-
-261 
-	#__©åibuã_dïªˇãd_msg__
-(
-msg
-) \
-
-262 
-	`__©åibuã__
- ((
-	`__dïªˇãd__
- (
-msg
-)))
-
-	)
-
-264 
-	#__©åibuã_dïªˇãd_msg__
-(
-msg
-Ë
-__©åibuã_dïªˇãd__
-
-
-	)
-
-273 #i‡
-	`__GNUC_PREREQ
- (2,8)
-
-274 
-	#__©åibuã_f‹m©_¨g__
-(
-x
-Ë
-	`__©åibuã__
- ((
-	`__f‹m©_¨g__
- (x)))
-
-	)
-
-276 
-	#__©åibuã_f‹m©_¨g__
-(
-x
-Ë
-
-	)
-
-283 #i‡
-	`__GNUC_PREREQ
- (2,97)
-
-284 
-	#__©åibuã_f‹m©_°rfm⁄__
-(
-a
-,
-b
-) \
-
-285 
-	`__©åibuã__
- ((
-	`__f‹m©__
- (
-__°rfm⁄__
-, 
-a
-, 
-b
-)))
-
-	)
-
-287 
-	#__©åibuã_f‹m©_°rfm⁄__
-(
-a
-,
-b
-Ë
-
-	)
-
-292 #i‡
-	`__GNUC_PREREQ
- (3,3)
-
-293 
-	#__n⁄nuŒ
-(
-∑øms
-Ë
-	`__©åibuã__
- ((
-__n⁄nuŒ__
-Ö¨ams))
-
-	)
-
-295 
-	#__n⁄nuŒ
-(
-∑øms
-)
-
-	)
-
-300 #i‡
-	`__GNUC_PREREQ
- (3,4)
-
-301 
-	#__©åibuã_w¨n_unu£d_ªsu…__
- \
-
-302 
-	`__©åibuã__
- ((
-__w¨n_unu£d_ªsu…__
-))
-
-	)
-
-303 #i‡
-__USE_FORTIFY_LEVEL
- > 0
-
-304 
-	#__wur
- 
-__©åibuã_w¨n_unu£d_ªsu…__
-
-
-	)
-
-307 
-	#__©åibuã_w¨n_unu£d_ªsu…__
-
-
-	)
-
-309 #i‚de‡
-__wur
-
-
-310 
-	#__wur
-
-
-	)
-
-314 #i‡
-	`__GNUC_PREREQ
- (3,2)
-
-318 #unde‡
-__Æways_ölöe
-
-
-319 
-	#__Æways_ölöe
- 
-__ölöe
- 
-	`__©åibuã__
- ((
-__Æways_ölöe__
-))
-
-	)
-
-321 #unde‡
-__Æways_ölöe
-
-
-322 
-	#__Æways_ölöe
- 
-__ölöe
-
-
-	)
-
-327 #i‡
-	`__GNUC_PREREQ
- (4,3)
-
-328 
-	#__©åibuã_¨tificül__
- 
-	`__©åibuã__
- ((
-__¨tificül__
-))
-
-	)
-
-330 
-	#__©åibuã_¨tificül__
-
-
-	)
-
-342 #i‡(!
-deföed
- 
-__˝lu•lus
- || 
-	`__GNUC_PREREQ
- (4,3) \
-
-343 || (
-deföed
- 
-__˛™g__
- && (deföed 
-__GNUC_STDC_INLINE__
- \
-
-344 || 
-deföed
- 
-__GNUC_GNU_INLINE__
-)))
-
-345 #i‡
-deföed
- 
-__GNUC_STDC_INLINE__
- || deföed 
-__˝lu•lus
-
-
-346 
-	#__exã∫_ölöe
- 
-__ölöe
- 
-	`__©åibuã__
- ((
-__gnu_ölöe__
-))
-
-	)
-
-347 
-	#__exã∫_Æways_ölöe
- \
-
-348 
-__Æways_ölöe
- 
-	`__©åibuã__
- ((
-__gnu_ölöe__
-))
-
-	)
-
-350 
-	#__exã∫_ölöe
- 
-__ölöe
-
-
-	)
-
-351 
-	#__exã∫_Æways_ölöe
- 
-__Æways_ölöe
-
-
-	)
-
-355 #ifde‡
-__exã∫_Æways_ölöe
-
-
-356 
-	#__f‹tify_fun˘i⁄
- 
-__exã∫_Æways_ölöe
- 
-__©åibuã_¨tificül__
-
-
-	)
-
-361 #i‡
-	`__GNUC_PREREQ
- (4,3)
-
-362 
-	#__va_¨g_∑ck
-(Ë
-	`__buûtö_va_¨g_∑ck
- ()
-
-	)
-
-363 
-	#__va_¨g_∑ck_Àn
-(Ë
-	`__buûtö_va_¨g_∑ck_Àn
- ()
-
-	)
-
-370 #i‡!
-	`__GNUC_PREREQ
- (2,8)
-
-371 
-	#__exãnsi⁄__
-
-
-	)
-
-375 #i‡!
-	`__GNUC_PREREQ
- (2,92)
-
-376 #i‡
-deföed
- 
-__STDC_VERSION__
- && __STDC_VERSION__ >= 199901L
-
-377 
-	#__ª°ri˘
- 
-ª°ri˘
-
-
-	)
-
-379 
-	#__ª°ri˘
-
-
-	)
-
-386 #i‡
-	`__GNUC_PREREQ
- (3,1Ë&& !
-deföed
- 
-__GNUG__
-
-
-387 
-	#__ª°ri˘_¨r
- 
-__ª°ri˘
-
-
-	)
-
-389 #ifde‡
-__GNUC__
-
-
-390 
-	#__ª°ri˘_¨r
-
-
-	)
-
-392 #i‡
-deföed
- 
-__STDC_VERSION__
- && __STDC_VERSION__ >= 199901L
-
-393 
-	#__ª°ri˘_¨r
- 
-ª°ri˘
-
-
-	)
-
-396 
-	#__ª°ri˘_¨r
-
-
-	)
-
-401 #i‡
-__GNUC__
- >= 3
-
-402 
-	#__glibc_u∆ikñy
-(
-c⁄d
-Ë
-	`__buûtö_ex≥˘
- ((c⁄d), 0)
-
-	)
-
-403 
-	#__glibc_likñy
-(
-c⁄d
-Ë
-	`__buûtö_ex≥˘
- ((c⁄d), 1)
-
-	)
-
-405 
-	#__glibc_u∆ikñy
-(
-c⁄d
-Ë(c⁄d)
-
-	)
-
-406 
-	#__glibc_likñy
-(
-c⁄d
-Ë(c⁄d)
-
-	)
-
-409 #ifde‡
-__has_©åibuã
-
-
-410 
-	#__glibc_has_©åibuã
-(
-©å
-Ë
-	`__has_©åibuã
- (©å)
-
-	)
-
-412 
-	#__glibc_has_©åibuã
-(
-©å
-Ë0
-
-	)
-
-415 #i‡(!
-deföed
- 
-_N‹ëu∫
- \
-
-416 && (
-deföed
- 
-__STDC_VERSION__
- ? __STDC_VERSION__ : 0) < 201112 \
-
-417 && !
-	$__GNUC_PREREQ
- (4,7))
-
-418 #i‡
-	`__GNUC_PREREQ
- (2,8)
-
-419 
-	#_N‹ëu∫
- 
-	`__©åibuã__
- ((
-__n‹ëu∫__
-))
-
-	)
-
-421 
-	#_N‹ëu∫
-
-
-	)
-
-425 #i‡
-	`__GNUC_PREREQ
- (8, 0)
-
-429 
-	#__©åibuã_n⁄°rög__
- 
-	`__©åibuã__
- ((
-__n⁄°rög__
-))
-
-	)
-
-431 
-	#__©åibuã_n⁄°rög__
-
-
-	)
-
-435 #unde‡
-__©åibuã_c›y__
-
-
-436 #i‡
-	`__GNUC_PREREQ
- (9, 0)
-
-439 
-	#__©åibuã_c›y__
-(
-¨g
-Ë
-	`__©åibuã__
- ((
-	`__c›y__
- (¨g)))
-
-	)
-
-441 
-	#__©åibuã_c›y__
-(
-¨g
-)
-
-	)
-
-444 #i‡(!
-deföed
- 
-_Sètic_as£π
- && !deföed 
-__˝lu•lus
- \
-
-445 && (
-deföed
- 
-__STDC_VERSION__
- ? __STDC_VERSION__ : 0) < 201112 \
-
-446 && (!
-	`__GNUC_PREREQ
- (4, 6Ë|| 
-deföed
- 
-__STRICT_ANSI__
-))
-
-447 
-	#_Sètic_as£π
-(
-ex¥
-, 
-dügno°ic
-) \
-
-448 (*
-	`__Sètic_as£π_fun˘i⁄
- ()) \
-
-449 [!! (°ru˘ { 
-__îr‹_if_√g©ive
-: (
-ex¥
-Ë? 2 : -1; })]
-
-	)
-
-452 
-	~<bôs/w‹dsize.h
->
-
-453 
-	~<bôs/l⁄g-doubÀ.h
->
-
-455 #i‡
-deföed
- 
-__LONG_DOUBLE_MATH_OPTIONAL
- && deföed 
-__NO_LONG_DOUBLE_MATH
-
-
-456 
-	#__LDBL_COMPAT
- 1
-
-	)
-
-457 #ifde‡
-__REDIRECT
-
-
-458 
-	#__LDBL_REDIR1
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-Ë
-	`__REDIRECT
- («me,ÖrŸo,álüs)
-
-	)
-
-459 
-	#__LDBL_REDIR
-(
-«me
-, 
-¥Ÿo
-) \
-
-460 
-	`__LDBL_REDIR1
- (
-«me
-, 
-¥Ÿo
-, 
-__∆dbl_
-##«me)
-
-	)
-
-461 
-	#__LDBL_REDIR1_NTH
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-Ë
-	`__REDIRECT_NTH
- («me,ÖrŸo,álüs)
-
-	)
-
-462 
-	#__LDBL_REDIR_NTH
-(
-«me
-, 
-¥Ÿo
-) \
-
-463 
-	`__LDBL_REDIR1_NTH
- (
-«me
-, 
-¥Ÿo
-, 
-__∆dbl_
-##«me)
-
-	)
-
-464 
-	#__LDBL_REDIR1_DECL
-(
-«me
-, 
-Æüs
-) \
-
-465 
-	`__ty≥of
- (
-«me
-Ë«mê
-	`__asm
- (
-	`__ASMNAME
- (#Æüs));
-
-	)
-
-466 
-	#__LDBL_REDIR_DECL
-(
-«me
-) \
-
-467 
-	`__ty≥of
- (
-«me
-Ë«mê
-	`__asm
- (
-	`__ASMNAME
- ("__∆dbl_" #«me));
-
-	)
-
-468 
-	#__REDIRECT_LDBL
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-469 
-	`__LDBL_REDIR1
- (
-«me
-, 
-¥Ÿo
-, 
-__∆dbl_
-##
-Æüs
-)
-
-	)
-
-470 
-	#__REDIRECT_NTH_LDBL
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-471 
-	`__LDBL_REDIR1_NTH
- (
-«me
-, 
-¥Ÿo
-, 
-__∆dbl_
-##
-Æüs
-)
-
-	)
-
-474 #i‡!
-deföed
- 
-__LDBL_COMPAT
- || !deföed 
-__REDIRECT
-
-
-475 
-	#__LDBL_REDIR1
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-Ë«mê
-	)
-proto
-
-476 
-	#__LDBL_REDIR
-(
-«me
-, 
-¥Ÿo
-Ë«mê
-	)
-proto
-
-477 
-	#__LDBL_REDIR1_NTH
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-Ë«mê¥Ÿÿ
-__THROW
-
-
-	)
-
-478 
-	#__LDBL_REDIR_NTH
-(
-«me
-, 
-¥Ÿo
-Ë«mê¥Ÿÿ
-__THROW
-
-
-	)
-
-479 
-	#__LDBL_REDIR_DECL
-(
-«me
-)
-
-	)
-
-480 #ifde‡
-__REDIRECT
-
-
-481 
-	#__REDIRECT_LDBL
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-Ë
-	`__REDIRECT
- («me,ÖrŸo,álüs)
-
-	)
-
-482 
-	#__REDIRECT_NTH_LDBL
-(
-«me
-, 
-¥Ÿo
-, 
-Æüs
-) \
-
-483 
-	`__REDIRECT_NTH
- (
-«me
-, 
-¥Ÿo
-, 
-Æüs
-)
-
-	)
-
-492 #i‡
-	`__GNUC_PREREQ
- (4,8Ë|| 
-	`__glibc_˛™g_¥îeq
- (3,5)
-
-493 
-	#__glibc_ma¸o_w¨nög1
-(
-mesßge
-Ë
-	`_Pøgma
- (#mesßge)
-
-	)
-
-494 
-	#__glibc_ma¸o_w¨nög
-(
-mesßge
-) \
-
-495 
-	`__glibc_ma¸o_w¨nög1
- (
-GCC
- 
-w¨nög
- 
-mesßge
-)
-
-	)
-
-497 
-	#__glibc_ma¸o_w¨nög
-(
-msg
-)
-
-	)
-
-507 #i‡!
-deföed
- 
-__˝lu•lus
- \
-
-508 && (
-	`__GNUC_PREREQ
- (4, 9) \
-
-509 || 
-	`__glibc_˛™g_has_exãnsi⁄
- (
-c_gíîic_£À˘i⁄s
-) \
-
-510 || (!
-deföed
- 
-__GNUC__
- && deföed 
-__STDC_VERSION__
- \
-
-511 && 
-__STDC_VERSION__
- >= 201112L))
-
-512 
-	#__HAVE_GENERIC_SELECTION
- 1
-
-	)
-
-514 
-	#__HAVE_GENERIC_SELECTION
- 0
-
-	)
-
-	@/usr/include/asm-generic/bitsperlong.h
-
-2 #i‚de‡
-__ASM_GENERIC_BITS_PER_LONG
-
-
-3 
-	#__ASM_GENERIC_BITS_PER_LONG
-
-
-	)
-
-12 #i‚de‡
-__BITS_PER_LONG
-
-
-13 
-	#__BITS_PER_LONG
- 32
-
-	)
-
-	@/usr/include/bits/long-double.h
-
-	@/usr/include/bits/wordsize.h
-
-3 #i‡
-deföed
- 
-__x86_64__
- && !deföed 
-__ILP32__
-
-
-4 
-	#__WORDSIZE
- 64
-
-	)
-
-6 
-	#__WORDSIZE
- 32
-
-	)
-
-7 
-	#__WORDSIZE32_SIZE_ULONG
- 0
-
-	)
-
-8 
-	#__WORDSIZE32_PTRDIFF_LONG
- 0
-
-	)
-
-11 #ifde‡
-__x86_64__
-
-
-12 
-	#__WORDSIZE_TIME64_COMPAT32
- 1
-
-	)
-
-14 
-	#__SYSCALL_WORDSIZE
- 64
-
-	)
-
-16 
-	#__WORDSIZE_TIME64_COMPAT32
- 0
-
-	)
-
-	@/usr/include/gnu/stubs-64.h
-
-6 #ifde‡
-_LIBC
-
-
-7 #îr‹ 
-Aµliˇti⁄s
- 
-may
- 
-nŸ
- 
-deföe
- 
-the
- 
-ma¸o
- 
-_LIBC
-
-
-10 
-	#__°ub___com∑t_bdÊush
-
-
-	)
-
-11 
-	#__°ub_chÊags
-
-
-	)
-
-12 
-	#__°ub_Áâach
-
-
-	)
-
-13 
-	#__°ub_fchÊags
-
-
-	)
-
-14 
-	#__°ub_fdëach
-
-
-	)
-
-15 
-	#__°ub_gëmsg
-
-
-	)
-
-16 
-	#__°ub_gây
-
-
-	)
-
-17 
-	#__°ub_lchmod
-
-
-	)
-
-18 
-	#__°ub_putmsg
-
-
-	)
-
-19 
-	#__°ub_ªvoke
-
-
-	)
-
-20 
-	#__°ub_£éogö
-
-
-	)
-
-21 
-	#__°ub_sigªtu∫
-
-
-	)
-
-22 
-	#__°ub_s°k
-
-
-	)
-
-23 
-	#__°ub_°ty
-
 
 	)
 
@@ -109150,8 +104694,8 @@ _LIBC
 .
 1
 /usr/include
-80
-1705
+54
+864
 balloc.c
 balloc.h
 bbuild.c
@@ -109184,13 +104728,11 @@ super.c
 super.h
 symlink.c
 sysfs.c
-/usr/include/asm/mman.h
 /usr/include/linux/capability.h
 /usr/include/linux/falloc.h
 /usr/include/linux/fs.h
 /usr/include/linux/magic.h
 /usr/include/linux/module.h
-/usr/include/linux/mount.h
 /usr/include/linux/random.h
 /usr/include/linux/rtc.h
 /usr/include/linux/sched.h
@@ -109199,36 +104741,12 @@ sysfs.c
 /usr/include/linux/types.h
 /usr/include/linux/uio.h
 /usr/include/linux/version.h
-/usr/include/asm-generic/mman.h
-/usr/include/asm/types.h
 /usr/include/linux/ioctl.h
 /usr/include/linux/irqnr.h
 /usr/include/linux/limits.h
 /usr/include/linux/posix_types.h
 /usr/include/string.h
-/usr/include/asm-generic/mman-common.h
-/usr/include/asm-generic/types.h
-/usr/include/asm/ioctl.h
-/usr/include/asm/posix_types.h
-/usr/include/bits/libc-header-start.h
-/usr/include/bits/string_fortified.h
-/usr/include/bits/types/locale_t.h
 /usr/include/linux/stddef.h
 /usr/include/strings.h
-/usr/include/asm-generic/int-ll64.h
-/usr/include/asm-generic/ioctl.h
-/usr/include/asm/posix_types_32.h
-/usr/include/asm/posix_types_64.h
-/usr/include/asm/posix_types_x32.h
-/usr/include/bits/strings_fortified.h
-/usr/include/bits/types/__locale_t.h
 /usr/include/features.h
-/usr/include/asm-generic/posix_types.h
-/usr/include/asm/bitsperlong.h
-/usr/include/gnu/stubs.h
 /usr/include/stdc-predef.h
-/usr/include/sys/cdefs.h
-/usr/include/asm-generic/bitsperlong.h
-/usr/include/bits/long-double.h
-/usr/include/bits/wordsize.h
-/usr/include/gnu/stubs-64.h

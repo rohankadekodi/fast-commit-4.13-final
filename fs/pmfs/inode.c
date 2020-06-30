@@ -29,6 +29,39 @@
 unsigned int blk_type_to_shift[PMFS_BLOCK_TYPE_MAX] = {12, 21, 30};
 uint32_t blk_type_to_size[PMFS_BLOCK_TYPE_MAX] = {0x1000, 0x200000, 0x40000000};
 
+int pmfs_init_inode_inuse_list(struct super_block *sb)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct pmfs_range_node *range_node;
+	struct inode_map *inode_map;
+	unsigned long range_high;
+	int i;
+	int ret;
+
+	sbi->s_inodes_used_count = PMFS_FREE_INODE_HINT_START;
+	range_high = PMFS_FREE_INODE_HINT_START;
+
+	inode_map = &sbi->inode_map;
+	range_node = pmfs_alloc_inode_node(sb);
+	if (range_node == NULL)
+		/* FIXME: free allocated memories */
+		return -ENOMEM;
+
+	range_node->range_low = 0;
+	range_node->range_high = range_high;
+	ret = pmfs_insert_inodetree(sbi, range_node);
+	if (ret) {
+		pmfs_err(sb, "%s failed\n", __func__);
+		pmfs_free_inode_node(range_node);
+		return ret;
+	}
+
+	inode_map->num_range_node_inode = 1;
+	inode_map->first_inode_range = range_node;
+
+	return 0;
+}
+
 /*
  * allocate a data block for inode and return it's absolute blocknr.
  * Zeroes out the block if zero set. Increments inode->i_blocks.
@@ -826,6 +859,30 @@ int pmfs_init_inode_table(struct super_block *sb)
 	return 0;
 }
 
+inline int pmfs_insert_inodetree(struct pmfs_sb_info *sbi,
+				 struct pmfs_range_node *new_node)
+{
+	struct rb_root *tree;
+	int ret;
+
+	tree = &sbi->inode_map.inode_inuse_tree;
+	ret = pmfs_insert_range_node(tree, new_node, NODE_INODE);
+	if (ret)
+		pmfs_dbg("ERROR: %s failed %d\n", __func__, ret);
+
+	return ret;
+}
+
+inline int pmfs_search_inodetree(struct pmfs_sb_info *sbi,
+				 unsigned long ino, struct pmfs_range_node **ret_node)
+{
+	struct rb_root *tree;
+
+	tree = &sbi->inode_map.inode_inuse_tree;
+	return pmfs_find_range_node(tree, ino,
+				    NODE_INODE, ret_node);
+}
+
 static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 {
 	int ret = -EIO;
@@ -910,6 +967,79 @@ static void pmfs_update_inode(struct inode *inode, struct pmfs_inode *pi)
 	pmfs_memlock_inode(inode->i_sb, pi);
 }
 
+static int pmfs_free_inuse_inode(struct super_block *sb, unsigned long ino)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct inode_map *inode_map;
+	struct pmfs_range_node *i = NULL;
+	struct pmfs_range_node *curr_node;
+	int found = 0;
+	int ret = 0;
+
+	pmfs_dbg_verbose("Free inuse ino: %lu\n", ino);
+	inode_map = &sbi->inode_map;
+
+	mutex_lock(&inode_map->inode_table_mutex);
+	found = pmfs_search_inodetree(sbi, ino, &i);
+	if (!found) {
+		pmfs_dbg("%s ERROR: ino %lu not found\n", __func__, ino);
+		mutex_unlock(&inode_map->inode_table_mutex);
+		return -EINVAL;
+	}
+
+	if ((ino == i->range_low) && (ino == i->range_high)) {
+		/* fits entire node */
+		rb_erase(&i->node, &inode_map->inode_inuse_tree);
+		pmfs_free_inode_node(i);
+		inode_map->num_range_node_inode--;
+		goto block_found;
+	}
+	if ((ino == i->range_low) && (ino < i->range_high)) {
+		/* Aligns left */
+		i->range_low = ino + 1;
+		goto block_found;
+	}
+	if ((ino > i->range_low) && (ino == i->range_high)) {
+		/* Aligns right */
+		i->range_high = ino - 1;
+		goto block_found;
+	}
+	if ((ino > i->range_low) && (ino < i->range_high)) {
+		/* Aligns somewhere in the middle */
+		curr_node = pmfs_alloc_inode_node(sb);
+		PMFS_ASSERT(curr_node);
+		if (curr_node == NULL) {
+			/* returning without freeing the block */
+			goto block_found;
+		}
+		curr_node->range_low = ino + 1;
+		curr_node->range_high = i->range_high;
+
+		i->range_high = ino - 1;
+
+		ret = pmfs_insert_inodetree(sbi, curr_node);
+		if (ret) {
+			pmfs_free_inode_node(curr_node);
+			goto err;
+		}
+		inode_map->num_range_node_inode++;
+		goto block_found;
+	}
+
+err:
+	pmfs_error_mng(sb, "Unable to free inode %lu\n", ino);
+	pmfs_error_mng(sb, "Found inuse block %lu - %lu\n",
+				 i->range_low, i->range_high);
+	mutex_unlock(&inode_map->inode_table_mutex);
+	return ret;
+
+block_found:
+	sbi->s_inodes_used_count--;
+	inode_map->freed++;
+	mutex_unlock(&inode_map->inode_table_mutex);
+	return ret;
+}
+
 /*
  * NOTE! When we get the inode, we're the only people
  * that have access to it, and as such there are no
@@ -926,6 +1056,8 @@ static int pmfs_free_inode(struct inode *inode)
 	unsigned long inode_nr;
 	pmfs_transaction_t *trans;
 	int err = 0;
+	struct pmfs_inode_info *si;
+	struct pmfs_inode_info_header *sih = NULL;
 
 	mutex_lock(&PMFS_SB(sb)->inode_table_mutex);
 
@@ -972,6 +1104,16 @@ static int pmfs_free_inode(struct inode *inode)
 		   sbi->s_free_inode_hint);
 out:
 	mutex_unlock(&PMFS_SB(sb)->inode_table_mutex);
+
+	si = PMFS_I(inode);
+	sih = &si->header;
+
+	sih->i_mode = 0;
+	sih->i_size = 0;
+	sih->i_blocks = 0;
+
+	err = pmfs_free_inuse_inode(sb, (inode->i_ino >> PMFS_INODE_BITS));
+
 	return err;
 }
 
@@ -1008,6 +1150,52 @@ fail:
 	return ERR_PTR(err);
 }
 
+static int pmfs_free_dram_resource(struct super_block *sb,
+	struct pmfs_inode_info_header *sih)
+{
+	int freed = 0;
+
+	if (sih->ino == 0)
+		return 0;
+
+	if (!(S_ISDIR(sih->i_mode)))
+		return 0;
+
+	pmfs_delete_dir_tree(sb, sih);
+	freed = 1;
+	return freed;
+}
+
+static int pmfs_free_inode_resource(struct super_block *sb,
+				    struct pmfs_inode *pi, struct pmfs_inode_info_header *sih,
+				    struct inode *inode)
+{
+	unsigned long last_blocknr;
+	int ret = 0;
+	int freed = 0;
+
+	pmfs_memlock_inode(sb, pi);
+
+	switch(__le16_to_cpu(pi->i_mode) & S_IFMT) {
+	case S_IFDIR:
+		pmfs_dbg_verbose("%s: dir ino %lu\n", __func__, sih->ino);
+		pmfs_delete_dir_tree(sb, sih);
+		break;
+	default:
+		break;
+	}
+
+	pmfs_dbg_verbose("%s: Freed %d\n", __func__, freed);
+	/* Then we can free the inode */
+	ret = pmfs_free_inode(inode);
+	if (ret) {
+		pmfs_err(sb, "%s: free inode %lu failed\n",
+			 __func__, sih->ino);
+	}
+
+	return ret;
+}
+
 void pmfs_evict_inode(struct inode *inode)
 {
 	struct super_block *sb = inode->i_sb;
@@ -1017,6 +1205,12 @@ void pmfs_evict_inode(struct inode *inode)
 	unsigned int height, btype;
 	int err = 0;
 	timing_t evict_time;
+	struct pmfs_inode_info *si;
+	struct pmfs_inode_info_header *sih = NULL;
+	int destroy = 0;
+
+	si = PMFS_I(inode);
+	sih = &si->header;
 
 	PMFS_START_TIMING(evict_inode_t, evict_time);
 	if (!inode->i_nlink && !is_bad_inode(inode)) {
@@ -1044,9 +1238,13 @@ void pmfs_evict_inode(struct inode *inode)
 		}
 
 		/* first free the inode */
-		err = pmfs_free_inode(inode);
-		if (err)
-			goto out;
+		if (pi) {
+			err = pmfs_free_inode_resource(sb, pi, sih, inode);
+			if (err)
+				goto out;
+		}
+
+		destroy = 1;
 		pi = NULL; /* we no longer own the pmfs_inode */
 
 		/* then free the blocks from the inode's b-tree */
@@ -1055,6 +1253,10 @@ void pmfs_evict_inode(struct inode *inode)
 		inode->i_size = 0;
 	}
 out:
+	if (destroy == 0) {
+		pmfs_dbg_verbose("%s: destroying %lu\n", __func__, inode->i_ino);
+		pmfs_free_dram_resource(sb, sih);
+	}
 	/* now it is safe to remove the inode from the truncate list */
 	pmfs_truncate_del(inode);
 	/* TODO: Since we don't use page-cache, do we really need the following
@@ -1063,6 +1265,56 @@ out:
 
 	clear_inode(inode);
 	PMFS_END_TIMING(evict_inode_t, evict_time);
+}
+
+static int pmfs_alloc_unused_inode(struct super_block *sb, unsigned long *ino)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct inode_map *inode_map;
+	struct pmfs_range_node *i, *next_i;
+	struct rb_node *temp, *next;
+	unsigned long next_range_low;
+	unsigned long new_ino;
+	unsigned long MAX_INODE = 1UL << 31;
+
+	inode_map = &sbi->inode_map;
+	i = inode_map->first_inode_range;
+	PMFS_ASSERT(i);
+
+	temp = &i->node;
+	next = rb_next(temp);
+
+	if (!next) {
+		next_i = NULL;
+		next_range_low = MAX_INODE;
+	} else {
+		next_i = container_of(next, struct pmfs_range_node, node);
+		next_range_low = next_i->range_low;
+	}
+
+	new_ino = i->range_high + 1;
+
+	if (next_i && new_ino == (next_range_low - 1)) {
+		/* Fill the gap completely */
+		i->range_high = next_i->range_high;
+		rb_erase(&next_i->node, &inode_map->inode_inuse_tree);
+		pmfs_free_inode_node(next_i);
+		inode_map->num_range_node_inode--;
+	} else if (new_ino < (next_range_low - 1)) {
+		/* Aligns to left */
+		i->range_high = new_ino;
+	} else {
+		pmfs_dbg("%s: ERROR: new ino %lu, next low %lu\n", __func__,
+			new_ino, next_range_low);
+		return -ENOSPC;
+	}
+
+	*ino = new_ino;
+	sbi->s_inodes_used_count++;
+	inode_map->allocated++;
+
+	pmfs_dbg_verbose("Alloc ino %lu\n", *ino);
+	return 0;
 }
 
 static int pmfs_increase_inode_table_size(struct super_block *sb)
@@ -1108,13 +1360,15 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	struct super_block *sb;
 	struct pmfs_sb_info *sbi;
 	struct inode *inode;
-	struct pmfs_inode *pi = NULL, *inode_table;
-	struct pmfs_inode *diri = NULL;
+	struct pmfs_inode *pi = NULL;
+	struct inode_map *inode_map;
+	struct pmfs_inode *diri = NULL, *inode_table;
 	int i, errval;
 	u32 num_inodes, inodes_per_block;
 	ino_t ino = 0;
 	struct pmfs_inode_info *si;
 	struct pmfs_inode_info_header *sih = NULL;
+	unsigned long free_ino = 0;
 
 	sb = dir->i_sb;
 	sbi = (struct pmfs_sb_info *)sb->s_fs_info;
@@ -1140,6 +1394,45 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 
 	mutex_lock(&sbi->inode_table_mutex);
 
+//#if 0
+	inode_map = &sbi->inode_map;
+	//mutex_lock(&inode_map->inode_table_mutex);
+
+	num_inodes = (sbi->s_inodes_count);
+	errval = pmfs_alloc_unused_inode(sb, &free_ino);
+	if (errval) {
+		pmfs_dbg("%s: alloc inode number failed %d\n", __func__, errval);
+		//mutex_unlock(&inode_map->inode_table_mutex);
+		mutex_unlock(&sbi->inode_table_mutex);
+		return 0;
+	}
+
+	//mutex_unlock(&inode_map->inode_table_mutex);
+
+	/* FIXME: Should handle this part */
+
+	ino = free_ino;
+
+	if (unlikely(ino >= num_inodes)) {
+		errval = pmfs_increase_inode_table_size(sb);
+		if (errval == 0) {
+			if (ino >= sbi->s_inodes_count) {
+				pmfs_dbg("%s: ino = %lu. s_inodes_count = %lu\n"
+					 , __func__, ino, sbi->s_inodes_count);
+			}
+		} else {
+			mutex_unlock(&PMFS_SB(sb)->inode_table_mutex);
+			pmfs_dbg("PMFS: could not find a free inode\n");
+			goto fail1;
+		}
+	}
+
+	ino = ino << PMFS_INODE_BITS;
+	pi = pmfs_get_inode(sb, ino);
+	pmfs_dbg_verbose("%s: ino got from the tree = %lu", __func__, ino);
+
+//#endif
+#if 0
 	/* find the oldest unused pmfs inode */
 	i = (sbi->s_free_inode_hint);
 	inodes_per_block = INODES_PER_BLOCK(inode_table->i_blk_type);
@@ -1172,8 +1465,9 @@ retry:
 		pmfs_dbg("PMFS: could not find a free inode\n");
 		goto fail1;
 	}
-
 	ino = i << PMFS_INODE_BITS;
+#endif
+
 	pmfs_dbg_verbose("allocating inode %lx\n", ino);
 
 	/* chosen inode is in ino */

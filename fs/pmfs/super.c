@@ -417,6 +417,9 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 		return ERR_PTR(-EINVAL);
 	}
 
+	if (pmfs_init_inode_inuse_list(sb) < 0)
+		return ERR_PTR(-EINVAL);
+
 	if (pmfs_init_inode_table(sb) < 0)
 		return ERR_PTR(-EINVAL);
 
@@ -603,6 +606,7 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 	struct pmfs_super_block *super;
 	struct pmfs_inode *root_pi;
 	struct pmfs_sb_info *sbi = NULL;
+	struct inode_map *inode_map;
 	struct inode *root_i = NULL;
 	unsigned long blocksize;
 	u32 random = 0;
@@ -651,6 +655,12 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 	mutex_init(&sbi->s_truncate_lock);
 	mutex_init(&sbi->inode_table_mutex);
 	mutex_init(&sbi->s_lock);
+
+	inode_map = &sbi->inode_map;
+	mutex_init(&inode_map->inode_table_mutex);
+	inode_map->inode_inuse_tree = RB_ROOT;
+	inode_map->allocated = 0;
+	inode_map->freed = 0;
 
 	if (pmfs_parse_options(data, sbi, 0))
 		goto out;
@@ -899,6 +909,11 @@ void pmfs_free_range_node(struct pmfs_range_node *node)
 	kmem_cache_free(pmfs_range_node_cachep, node);
 }
 
+void pmfs_free_inode_node(struct pmfs_range_node *node)
+{
+	pmfs_free_range_node(node);
+}
+
 void pmfs_free_dir_node(struct pmfs_range_node *node)
 {
 	pmfs_free_range_node(node);
@@ -953,6 +968,11 @@ struct pmfs_range_node *pmfs_alloc_range_node(struct super_block *sb)
 	p = (struct pmfs_range_node *)
 		kmem_cache_zalloc(pmfs_range_node_cachep, GFP_NOFS);
 	return p;
+}
+
+struct pmfs_range_node *pmfs_alloc_inode_node(struct super_block *sb)
+{
+	return pmfs_alloc_range_node(sb);
 }
 
 struct pmfs_range_node *pmfs_alloc_dir_node(struct super_block *sb)
