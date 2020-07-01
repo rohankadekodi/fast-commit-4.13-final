@@ -258,7 +258,7 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	if (retval != -ENOSPC)
 		goto out;
 	//}
-	
+
 	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false);
 	if (retval)
 		goto out;

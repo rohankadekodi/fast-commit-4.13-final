@@ -979,11 +979,11 @@ static int pmfs_free_inuse_inode(struct super_block *sb, unsigned long ino)
 	pmfs_dbg_verbose("Free inuse ino: %lu\n", ino);
 	inode_map = &sbi->inode_map;
 
-	mutex_lock(&inode_map->inode_table_mutex);
+	//mutex_lock(&inode_map->inode_table_mutex);
 	found = pmfs_search_inodetree(sbi, ino, &i);
 	if (!found) {
 		pmfs_dbg("%s ERROR: ino %lu not found\n", __func__, ino);
-		mutex_unlock(&inode_map->inode_table_mutex);
+		//mutex_unlock(&inode_map->inode_table_mutex);
 		return -EINVAL;
 	}
 
@@ -1030,13 +1030,13 @@ err:
 	pmfs_error_mng(sb, "Unable to free inode %lu\n", ino);
 	pmfs_error_mng(sb, "Found inuse block %lu - %lu\n",
 				 i->range_low, i->range_high);
-	mutex_unlock(&inode_map->inode_table_mutex);
+	//mutex_unlock(&inode_map->inode_table_mutex);
 	return ret;
 
 block_found:
 	sbi->s_inodes_used_count--;
 	inode_map->freed++;
-	mutex_unlock(&inode_map->inode_table_mutex);
+	//mutex_unlock(&inode_map->inode_table_mutex);
 	return ret;
 }
 
@@ -1103,7 +1103,6 @@ static int pmfs_free_inode(struct inode *inode)
 		   sbi->s_free_inodes_count, sbi->s_inodes_count,
 		   sbi->s_free_inode_hint);
 out:
-	mutex_unlock(&PMFS_SB(sb)->inode_table_mutex);
 
 	si = PMFS_I(inode);
 	sih = &si->header;
@@ -1113,6 +1112,8 @@ out:
 	sih->i_blocks = 0;
 
 	err = pmfs_free_inuse_inode(sb, (inode->i_ino >> PMFS_INODE_BITS));
+
+	mutex_unlock(&PMFS_SB(sb)->inode_table_mutex);
 
 	return err;
 }
@@ -1394,7 +1395,7 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 
 	mutex_lock(&sbi->inode_table_mutex);
 
-//#if 0
+	//#if 0
 	inode_map = &sbi->inode_map;
 	//mutex_lock(&inode_map->inode_table_mutex);
 
@@ -1431,7 +1432,7 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	pi = pmfs_get_inode(sb, ino);
 	pmfs_dbg_verbose("%s: ino got from the tree = %lu", __func__, ino);
 
-//#endif
+	//#endif
 #if 0
 	/* find the oldest unused pmfs inode */
 	i = (sbi->s_free_inode_hint);
