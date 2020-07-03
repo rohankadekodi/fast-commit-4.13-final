@@ -38,7 +38,7 @@ struct pmfs_direntry *pmfs_find_dentry(struct super_block *sb,
 
 	hash = BKDRHash(name, name_len);
 
-	found = pmfs_find_range_node(&sih->rb_tree, hash,
+	found = pmfs_find_range_node(&sih->rb_tree, hash, NODE_DIR,
 				     &ret_node);
 	if (found == 1 && hash == ret_node->hash)
 		direntry = ret_node->direntry;
@@ -64,7 +64,7 @@ int pmfs_insert_dir_tree(struct super_block *sb,
 
 	node->hash = hash;
 	node->direntry = direntry;
-	ret = pmfs_insert_range_node(&sih->rb_tree, node);
+	ret = pmfs_insert_range_node(&sih->rb_tree, node, NODE_DIR);
 	if (ret) {
 		pmfs_free_dir_node(node);
 		pmfs_dbg("%s ERROR %d: %s\n", __func__, ret, name);
@@ -92,7 +92,7 @@ int pmfs_remove_dir_tree(struct super_block *sb,
 	int found = 0;
 
 	hash = BKDRHash(name, namelen);
-	found = pmfs_find_range_node(&sih->rb_tree, hash,
+	found = pmfs_find_range_node(&sih->rb_tree, hash, NODE_DIR,
 				     &ret_node);
 	if (found == 0) {
 		pmfs_dbg("%s target not found: %s, length %d, "
@@ -131,7 +131,7 @@ int pmfs_remove_dir_tree(struct super_block *sb,
 void pmfs_delete_dir_tree(struct super_block *sb,
 			  struct pmfs_inode_info_header *sih)
 {
-	pmfs_dbg("%s: delete dir %lu\n", __func__, sih->ino);
+	pmfs_dbg_verbose("%s: delete dir %lu\n", __func__, sih->ino);
 	pmfs_destroy_range_node_tree(sb, &sih->rb_tree);
 }
 
@@ -244,18 +244,21 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	pmfs_add_logentry(sb, trans, pidir, MAX_DATA_PER_LENTRY, LE_DATA);
 
 	blocks = dir->i_size >> sb->s_blocksize_bits;
-	for (block = 0; block < blocks; block++) {
-		blk_base =
-			pmfs_get_block(sb, pmfs_find_data_block(dir, block));
-		if (!blk_base) {
-			retval = -EIO;
-			goto out;
-		}
-		retval = pmfs_add_dirent_to_buf(trans, dentry, inode,
-				NULL, blk_base, pidir);
-		if (retval != -ENOSPC)
-			goto out;
+	block = blocks - 1;
+
+	//for (block = 0; block < blocks; block++) {
+	blk_base =
+		pmfs_get_block(sb, pmfs_find_data_block(dir, block));
+	if (!blk_base) {
+		retval = -EIO;
+		goto out;
 	}
+	retval = pmfs_add_dirent_to_buf(trans, dentry, inode,
+					NULL, blk_base, pidir);
+	if (retval != -ENOSPC)
+		goto out;
+	//}
+
 	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false);
 	if (retval)
 		goto out;

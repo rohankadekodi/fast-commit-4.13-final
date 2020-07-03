@@ -154,7 +154,6 @@ struct pmfs_super_block {
 #define PMFS_ROOT_INO (PMFS_INODE_SIZE)
 #define PMFS_BLOCKNODE_IN0 (PMFS_ROOT_INO + PMFS_INODE_SIZE)
 
-/* INODE HINT  START at 3 */ 
 #define PMFS_FREE_INODE_HINT_START      (3)
 
 /* ======================= Write ordering ========================= */

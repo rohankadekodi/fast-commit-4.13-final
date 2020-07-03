@@ -178,6 +178,7 @@ static inline void pmfs_update_time_and_size(struct inode *inode,
 		*(u64 *)&pi->i_ctime, new_pi_size, *(u64 *)words);
 }
 
+int pmfs_init_inode_inuse_list(struct super_block *sb);
 extern unsigned int pmfs_free_inode_subtree(struct super_block *sb,
 		__le64 root, u32 height, u32 btype, unsigned long last_blocknr);
 extern int __pmfs_alloc_blocks(pmfs_transaction_t *trans,

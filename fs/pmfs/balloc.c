@@ -43,18 +43,27 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 }
 
 static inline int pmfs_rbtree_compare_rangenode(struct pmfs_range_node *curr,
-						unsigned long key)
+						unsigned long key, enum node_type type)
 {
-	if (key < curr->hash)
+	if (type == NODE_DIR) {
+		if (key < curr->hash)
+			return -1;
+		if (key > curr->hash)
+			return 1;
+		return 0;
+	}
+
+	/* Inode */
+	if (key < curr->range_low)
 		return -1;
-	if (key > curr->hash)
+	if (key > curr->range_high)
 		return 1;
 
 	return 0;
 }
 
 int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
-			 struct pmfs_range_node **ret_node)
+			 enum node_type type, struct pmfs_range_node **ret_node)
 {
 	struct pmfs_range_node *curr = NULL;
 	struct rb_node *temp;
@@ -65,7 +74,7 @@ int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
 
 	while (temp) {
 		curr = container_of(temp, struct pmfs_range_node, node);
-		compVal = pmfs_rbtree_compare_rangenode(curr, key);
+		compVal = pmfs_rbtree_compare_rangenode(curr, key, type);
 
 		if (compVal == -1) {
 			temp = temp->rb_left;
@@ -82,7 +91,7 @@ int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
 }
 
 int pmfs_insert_range_node(struct rb_root *tree,
-	struct pmfs_range_node *new_node)
+			   struct pmfs_range_node *new_node, enum node_type type)
 {
 	struct pmfs_range_node *curr;
 	struct rb_node **temp, *parent;
@@ -94,7 +103,7 @@ int pmfs_insert_range_node(struct rb_root *tree,
 	while (*temp) {
 		curr = container_of(*temp, struct pmfs_range_node, node);
 		compVal = pmfs_rbtree_compare_rangenode(curr,
-					new_node->range_low);
+							new_node->range_low, type);
 		parent = *temp;
 
 		if (compVal == -1) {
