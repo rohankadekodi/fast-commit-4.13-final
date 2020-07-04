@@ -171,8 +171,9 @@ extern void pmfs_free_block(struct super_block *sb, unsigned long blocknr,
 	unsigned short btype);
 extern void __pmfs_free_block(struct super_block *sb, unsigned long blocknr,
 	unsigned short btype, struct pmfs_blocknode **start_hint);
-extern int pmfs_new_block(struct super_block *sb, unsigned long *blocknr,
-	unsigned short btype, int zero);
+extern int pmfs_new_blocks(struct super_block *sb, unsigned long *blocknr,
+			   unsigned int num, unsigned short btype, int zero,
+			   int cpu);
 extern unsigned long pmfs_count_free_blocks(struct super_block *sb);
 
 /* dir.c */
@@ -268,6 +269,9 @@ struct pmfs_sb_info {
 	unsigned long	block_end;
 	unsigned long	num_free_blocks;
 	struct mutex 	s_lock;	/* protects the SB's buffer-head */
+	unsigned long   num_blocks;
+
+	int cpus;
 
 	/*
 	 * Backing store option:
@@ -295,6 +299,8 @@ struct pmfs_sb_info {
 
 	unsigned long num_blocknode_allocated;
 
+	unsigned long head_reserved_blocks;
+
 	/* Journaling related structures */
 	uint32_t    next_transaction_id;
 	uint32_t    jsize;
@@ -308,7 +314,14 @@ struct pmfs_sb_info {
 	struct list_head s_truncate;
 	struct mutex s_truncate_lock;
 
-	struct inode_map inode_map;
+	struct inode_map *inode_maps;
+
+	/* Decide new inode map id */
+	unsigned long map_id;
+
+	/* Per-CPU free blocks list */
+	struct free_list *free_lists;
+	unsigned long per_list_blocks;
 };
 
 struct pmfs_range_node {

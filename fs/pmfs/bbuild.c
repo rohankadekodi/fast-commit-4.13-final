@@ -71,7 +71,7 @@ static void pmfs_init_blockmap_from_inode(struct super_block *sb)
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
 	struct pmfs_inode *pi =  pmfs_get_inode(sb, PMFS_BLOCKNODE_IN0);
 	struct pmfs_blocknode_lowhigh *p = NULL;
-	struct pmfs_blocknode *blknode;
+	struct pmfs_range_node *blknode;
 	unsigned long index;
 	unsigned long blocknr;
 	unsigned long i;
@@ -140,14 +140,14 @@ static int pmfs_allocate_datablock_block_inode(pmfs_transaction_t *trans,
 	struct super_block *sb, struct pmfs_inode *pi, unsigned long num_blocks)
 {
 	int errval;
-	
+
 	pmfs_memunlock_inode(sb, pi);
 	pi->i_mode = 0;
 	pi->i_links_count = cpu_to_le16(1);
 	pi->i_blk_type = PMFS_BLOCK_TYPE_4K;
 	pi->i_flags = 0;
 	pi->height = 0;
-	pi->i_dtime = 0; 
+	pi->i_dtime = 0;
 	pi->i_size = cpu_to_le64(num_blocks << sb->s_blocksize_bits);
 	pmfs_memlock_inode(sb, pi);
 
@@ -169,8 +169,8 @@ void pmfs_save_blocknode_mappings(struct super_block *sb)
 	u64 bp;
 	int j, k;
 	int errval;
-	
-	num_blocks = ((sbi->num_blocknode_allocated * sizeof(struct 
+
+	num_blocks = ((sbi->num_blocknode_allocated * sizeof(struct
 		pmfs_blocknode_lowhigh) - 1) >> sb->s_blocksize_bits) + 1;
 
 	/* 2 log entry for inode, 2 lentry for super-block */

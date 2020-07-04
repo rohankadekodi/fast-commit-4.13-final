@@ -349,6 +349,7 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	sbi->block_start = (unsigned long)0;
 	sbi->block_end = ((unsigned long)(size) >> PAGE_SHIFT);
 	sbi->num_free_blocks = ((unsigned long)(size) >> PAGE_SHIFT);
+	sbi->num_blocks = ((unsigned long)(size) >> PAGE_SHIFT);
 
 	if (!sbi->virt_addr) {
 		printk(KERN_ERR "ioremap of the pmfs image failed(1)\n");
@@ -430,7 +431,7 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	pmfs_flush_buffer(super, PMFS_SB_SIZE, false);
 	pmfs_flush_buffer((char *)super + PMFS_SB_SIZE, sizeof(*super), false);
 
-	pmfs_new_block(sb, &blocknr, PMFS_BLOCK_TYPE_4K, 1);
+	pmfs_new_blocks(sb, &blocknr, 1, PMFS_BLOCK_TYPE_4K, 1, ANY_CPU);
 
 	root_i = pmfs_get_inode(sb, PMFS_ROOT_INO);
 
@@ -477,6 +478,9 @@ static inline void set_default_opts(struct pmfs_sb_info *sbi)
 	set_opt(sbi->s_mount_opt, HUGEIOREMAP);
 	set_opt(sbi->s_mount_opt, ERRORS_CONT);
 	sbi->jsize = PMFS_DEFAULT_JOURNAL_SIZE;
+	sbi->cpus = num_online_cpus();
+	sbi->map_id = 0;
+	pmfs_info("%d cpus online\n", sbi->cpus);
 }
 
 static void pmfs_root_check(struct super_block *sb, struct pmfs_inode *root_pi)
@@ -656,11 +660,20 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 	mutex_init(&sbi->inode_table_mutex);
 	mutex_init(&sbi->s_lock);
 
-	inode_map = &sbi->inode_map;
-	mutex_init(&inode_map->inode_table_mutex);
-	inode_map->inode_inuse_tree = RB_ROOT;
-	inode_map->allocated = 0;
-	inode_map->freed = 0;
+	sbi->inode_maps = kcalloc(sbi->cpus, sizeof(struct inode_map),
+				  GFP_KERNEL);
+	if (!sbi->inode_maps) {
+		retval = -ENOMEM;
+		pmfs_dbg("%s: Allocating inode maps failed.",
+			 __func__);
+		goto out;
+	}
+
+	for (i = 0; i < sbi->cpus; i++) {
+		inode_map = &sbi->inode_maps[i];
+		mutex_init(&inode_map->inode_table_mutex);
+		inode_map->inode_inuse_tree = RB_ROOT;
+	}
 
 	if (pmfs_parse_options(data, sbi, 0))
 		goto out;
@@ -937,16 +950,9 @@ inline pmfs_transaction_t *pmfs_alloc_transaction(void)
 		kmem_cache_alloc(pmfs_transaction_cachep, GFP_NOFS);
 }
 
-struct pmfs_blocknode *pmfs_alloc_blocknode(struct super_block *sb)
+struct pmfs_range_node *pmfs_alloc_blocknode(struct super_block *sb)
 {
-	struct pmfs_blocknode *p;
-	struct pmfs_sb_info *sbi = PMFS_SB(sb);
-	p = (struct pmfs_blocknode *)
-		kmem_cache_alloc(pmfs_blocknode_cachep, GFP_NOFS);
-	if (p) {
-		sbi->num_blocknode_allocated++;
-	}
-	return p;
+	return pmfs_alloc_range_node(sb);
 }
 
 static struct inode *pmfs_alloc_inode(struct super_block *sb)

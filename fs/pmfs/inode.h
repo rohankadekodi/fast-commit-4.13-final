@@ -41,6 +41,13 @@ struct pmfs_inode {
 };
 
 /*
+ * Inode table. It is a linked list of pages.
+ */
+struct inode_table {
+	__le64 log_head;
+}
+
+/*
  * PMFS-specific inode state kept in DRAM
  */
 struct pmfs_inode_info_header {
