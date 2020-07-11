@@ -51,7 +51,7 @@ static struct kmem_cache *pmfs_transaction_cachep;
 static struct kmem_cache *pmfs_range_node_cachep;
 
 /* FIXME: should the following variable be one per PMFS instance? */
-unsigned int pmfs_dbgmask = 0;
+unsigned int pmfs_dbgmask = 0x00000010;
 
 #ifdef CONFIG_PMFS_TEST
 static void *first_pmfs_super;
@@ -424,6 +424,9 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	if (pmfs_init_inode_table(sb) < 0)
 		return ERR_PTR(-EINVAL);
 
+	pmfs_dbg_verbose("%s: inode inuse list and inode table initialized\n",
+			 __func__);
+
 	pmfs_memunlock_range(sb, super, PMFS_SB_SIZE*2);
 	pmfs_sync_super(super);
 	pmfs_memlock_range(sb, super, PMFS_SB_SIZE*2);
@@ -434,13 +437,19 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	pmfs_new_blocks(sb, &blocknr, 1, PMFS_BLOCK_TYPE_4K, 1, ANY_CPU);
 
 	root_i = pmfs_get_inode(sb, PMFS_ROOT_INO);
+	pmfs_dbg_verbose("%s: Allocate root inode @ 0x%p\n", __func__, root_i);
 
 	pmfs_memunlock_inode(sb, root_i);
+	pmfs_dbg_verbose("%s: memunlock inode done\n", __func__);
+
 	root_i->i_mode = cpu_to_le16(sbi->mode | S_IFDIR);
 	root_i->i_uid = cpu_to_le32(from_kuid(&init_user_ns, sbi->uid));
 	root_i->i_gid = cpu_to_le32(from_kgid(&init_user_ns, sbi->gid));
 	root_i->i_links_count = cpu_to_le16(2);
 	root_i->i_blk_type = PMFS_BLOCK_TYPE_4K;
+
+	pmfs_dbg_verbose("%s: partially initialized the root_i inode\n", __func__);
+
 	root_i->i_flags = 0;
 	root_i->i_blocks = cpu_to_le64(1);
 	root_i->i_size = cpu_to_le64(sb->s_blocksize);
@@ -452,6 +461,9 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	/* pmfs_sync_inode(root_i); */
 	pmfs_memlock_inode(sb, root_i);
 	pmfs_flush_buffer(root_i, sizeof(*root_i), false);
+
+	pmfs_dbg_verbose("%s: initialized the root_i inode\n", __func__);
+
 	de = (struct pmfs_direntry *)
 		pmfs_get_block(sb, pmfs_get_block_off(sb, blocknr, PMFS_BLOCK_TYPE_4K));
 
@@ -464,6 +476,9 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	de->ino = cpu_to_le64(PMFS_ROOT_INO);
 	de->de_len = cpu_to_le16(sb->s_blocksize - PMFS_DIR_REC_LEN(1));
 	de->name_len = 2;
+
+	pmfs_dbg_verbose("%s: initialized the de inode\n", __func__);
+
 	strcpy(de->name, "..");
 	pmfs_memlock_range(sb, de, sb->s_blocksize);
 	pmfs_flush_buffer(de, PMFS_DIR_REC_LEN(2), false);
@@ -615,6 +630,7 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 	unsigned long blocksize;
 	u32 random = 0;
 	int retval = -EINVAL;
+	int i;
 
 	BUILD_BUG_ON(sizeof(struct pmfs_super_block) > PMFS_SB_SIZE);
 	BUILD_BUG_ON(sizeof(struct pmfs_inode) > PMFS_INODE_SIZE);
@@ -679,6 +695,15 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 		goto out;
 
 	set_opt(sbi->s_mount_opt, MOUNTING);
+
+	if (pmfs_alloc_block_free_lists(sb)) {
+		retval = -ENOMEM;
+		pmfs_err(sb, "%s: Failed to allocate block free lists.",
+			 __func__);
+		goto out;
+	}
+
+	pmfs_dbg("Calling pmfs_init");
 
 	/* Init a new pmfs instance */
 	if (sbi->s_mount_opt & PMFS_MOUNT_FORMAT) {
@@ -749,10 +774,6 @@ setup_sb:
 	}
 
 	pmfs_recover_truncate_list(sb);
-	/* If the FS was not formatted on this mount, scan the meta-data after
-	 * truncate list has been processed */
-	if ((sbi->s_mount_opt & PMFS_MOUNT_FORMAT) == 0)
-		pmfs_setup_blocknode_map(sb);
 
 	if (!(sb->s_flags & MS_RDONLY)) {
 		u64 mnt_write_time;
@@ -886,8 +907,9 @@ restore_opt:
 static void pmfs_put_super(struct super_block *sb)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
-	struct pmfs_blocknode *i;
 	struct list_head *head = &(sbi->block_inuse_head);
+	struct inode_map *inode_map;
+	int i;
 
 #ifdef CONFIG_PMFS_TEST
 	if (first_pmfs_super == sbi->virt_addr)
@@ -901,12 +923,17 @@ static void pmfs_put_super(struct super_block *sb)
 		sbi->virt_addr = NULL;
 	}
 
-	/* Free all the pmfs_blocknodes */
-	while (!list_empty(head)) {
-		i = list_first_entry(head, struct pmfs_blocknode, link);
-		list_del(&i->link);
-		pmfs_free_blocknode(sb, i);
+	pmfs_delete_free_lists(sb);
+	kfree(sbi->free_lists);
+
+	for (i = 0; i < sbi->cpus; i++) {
+		inode_map = &sbi->inode_maps[i];
+		pmfs_dbg_verbose("CPU %d: inode allocated %d, freed %d\n",
+				 i, inode_map->allocated, inode_map->freed);
 	}
+
+	kfree(sbi->inode_maps);
+
 	sb->s_fs_info = NULL;
 	pmfs_dbgmask = 0;
 	kfree(sbi);
@@ -932,12 +959,12 @@ void pmfs_free_dir_node(struct pmfs_range_node *node)
 	pmfs_free_range_node(node);
 }
 
-void __pmfs_free_blocknode(struct pmfs_blocknode *bnode)
+void __pmfs_free_blocknode(struct pmfs_range_node *bnode)
 {
 	kmem_cache_free(pmfs_blocknode_cachep, bnode);
 }
 
-void pmfs_free_blocknode(struct super_block *sb, struct pmfs_blocknode *bnode)
+void pmfs_free_blocknode(struct super_block *sb, struct pmfs_range_node *bnode)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
 	sbi->num_blocknode_allocated--;
@@ -948,11 +975,6 @@ inline pmfs_transaction_t *pmfs_alloc_transaction(void)
 {
 	return (pmfs_transaction_t *)
 		kmem_cache_alloc(pmfs_transaction_cachep, GFP_NOFS);
-}
-
-struct pmfs_range_node *pmfs_alloc_blocknode(struct super_block *sb)
-{
-	return pmfs_alloc_range_node(sb);
 }
 
 static struct inode *pmfs_alloc_inode(struct super_block *sb)
@@ -974,6 +996,11 @@ struct pmfs_range_node *pmfs_alloc_range_node(struct super_block *sb)
 	p = (struct pmfs_range_node *)
 		kmem_cache_zalloc(pmfs_range_node_cachep, GFP_NOFS);
 	return p;
+}
+
+struct pmfs_range_node *pmfs_alloc_blocknode(struct super_block *sb)
+{
+	return pmfs_alloc_range_node(sb);
 }
 
 struct pmfs_range_node *pmfs_alloc_inode_node(struct super_block *sb)
@@ -1007,17 +1034,6 @@ static void init_once(void *foo)
 	inode_init_once(&vi->vfs_inode);
 }
 
-
-static int __init init_blocknode_cache(void)
-{
-	pmfs_blocknode_cachep = kmem_cache_create("pmfs_blocknode_cache",
-					sizeof(struct pmfs_blocknode),
-					0, (SLAB_RECLAIM_ACCOUNT |
-                                        SLAB_MEM_SPREAD), NULL);
-	if (pmfs_blocknode_cachep == NULL)
-		return -ENOMEM;
-	return 0;
-}
 
 static int __init init_rangenode_cache(void)
 {
@@ -1071,9 +1087,9 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(pmfs_inode_cachep);
 }
 
-static void destroy_blocknode_cache(void)
+static void destroy_rangenode_cache(void)
 {
-	kmem_cache_destroy(pmfs_blocknode_cachep);
+	kmem_cache_destroy(pmfs_range_node_cachep);
 }
 
 /*
@@ -1157,10 +1173,6 @@ static int __init init_pmfs_fs(void)
 {
 	int rc = 0;
 
-	rc = init_blocknode_cache();
-	if (rc)
-		return rc;
-
 	rc = init_rangenode_cache();
 	if (rc)
 		return rc;
@@ -1184,7 +1196,7 @@ out3:
 out2:
 	destroy_transaction_cache();
 out1:
-	destroy_blocknode_cache();
+	destroy_rangenode_cache();
 	return rc;
 }
 
@@ -1192,8 +1204,8 @@ static void __exit exit_pmfs_fs(void)
 {
 	unregister_filesystem(&pmfs_fs_type);
 	destroy_inodecache();
-	destroy_blocknode_cache();
 	destroy_transaction_cache();
+	destroy_rangenode_cache();
 }
 
 MODULE_AUTHOR("Intel Corporation <linux-pmfs@intel.com>");

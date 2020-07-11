@@ -51,6 +51,7 @@
 
 #define PMFS_INODE_SIZE 128    /* must be power of two */
 #define PMFS_INODE_BITS   7
+#define INODE_TABLE0_START 16
 
 #define PMFS_NAME_LEN 255
 /*
@@ -151,8 +152,8 @@ struct pmfs_super_block {
 #define PMFS_FAST_MOUNT_FIELD_SIZE  (36)
 
 /* The root inode follows immediately after the redundant super block */
-#define PMFS_ROOT_INO (PMFS_INODE_SIZE)
-#define PMFS_BLOCKNODE_IN0 (PMFS_ROOT_INO + PMFS_INODE_SIZE)
+#define PMFS_ROOT_INO (1)
+#define PMFS_BLOCKNODE_IN0 (2)
 
 #define PMFS_FREE_INODE_HINT_START      (3)
 

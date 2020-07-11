@@ -259,7 +259,7 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 		goto out;
 	//}
 
-	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false);
+	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false, ANY_CPU);
 	if (retval)
 		goto out;
 
@@ -359,7 +359,7 @@ int pmfs_remove_entry(pmfs_transaction_t *trans, struct dentry *de,
 	pidir->i_ctime = cpu_to_le32(dir->i_ctime.tv_sec);
 	pmfs_memlock_inode(sb, pidir);
 	retval = 0;
-out:
+//out:
 	return retval;
 }
 

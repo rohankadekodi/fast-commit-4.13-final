@@ -45,7 +45,7 @@ struct pmfs_inode {
  */
 struct inode_table {
 	__le64 log_head;
-}
+};
 
 /*
  * PMFS-specific inode state kept in DRAM
@@ -119,8 +119,108 @@ static inline u64 __pmfs_find_data_block(struct super_block *sb,
 	return bp;
 }
 
+
+static inline struct inode_table *pmfs_get_inode_table_log(struct super_block *sb,
+	int cpu)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	int table_start;
+
+	if (cpu >= sbi->cpus)
+		return NULL;
+
+	table_start = INODE_TABLE0_START;
+
+	return (struct inode_table *)((char *)pmfs_get_block(sb,
+							     PMFS_DEF_BLOCK_SIZE_4K * table_start) +
+				      cpu * CACHELINE_SIZE);
+}
+
+/* Get the address in PMEM of an inode by inode number. Allocate additional
+ * block to store additional inodes if necessary.
+ */
+static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct inode_table *inode_table;
+	unsigned int data_bits;
+	unsigned int num_inodes_bits;
+	struct pmfs_inode *pmfs_inode_table = pmfs_get_inode_table(sb);
+	u64 curr;
+	unsigned int superpage_count;
+	u64 internal_ino;
+	int cpuid;
+	unsigned int index;
+	unsigned int i = 0;
+	unsigned long blocknr;
+	unsigned long curr_addr;
+	int allocated;
+
+	if (ino == 0)
+		return NULL;
+
+	data_bits = blk_type_to_shift[pmfs_inode_table->i_blk_type];
+	num_inodes_bits = data_bits - PMFS_INODE_BITS;
+
+	cpuid = ino % sbi->cpus;
+	internal_ino = ino / sbi->cpus;
+
+	inode_table = pmfs_get_inode_table_log(sb, cpuid);
+	superpage_count = internal_ino >> num_inodes_bits;
+	index = internal_ino & ((1 << num_inodes_bits) - 1);
+
+	curr = inode_table->log_head;
+	if (curr == 0) {
+		pmfs_dbg_verbose("%s: could not find inode for ino = %lu\n",
+				 __func__, ino);
+		return NULL;
+	}
+
+	for (i = 0; i < superpage_count; i++) {
+		if (curr == 0) {
+			pmfs_dbg_verbose("%s: could not get the inode log for super page = %d\n",
+					 __func__, i);
+			return NULL;
+		}
+
+		curr_addr = (unsigned long) pmfs_get_block(sb, curr);
+		/* Next page pointer in the last 8 bytes of the superpage */
+		curr_addr += blk_type_to_size[pmfs_inode_table->i_blk_type] - 8;
+		curr = *(u64 *)(curr_addr);
+
+		if (curr == 0) {
+			allocated = pmfs_new_blocks(sb, &blocknr, 1,
+						    PMFS_BLOCK_TYPE_2M,
+						    1, cpuid);
+
+			if (allocated != 1) {
+				pmfs_dbg_verbose("%s: could not extend inode table for cpu = %d\n",
+						 __func__, cpuid);
+				return NULL;
+			}
+
+			curr = pmfs_get_block_off(sb, blocknr,
+						  PMFS_BLOCK_TYPE_2M);
+			pmfs_memunlock_range(sb, (void *)curr_addr,
+					     CACHELINE_SIZE);
+			*(u64 *)(curr_addr) = curr;
+			pmfs_memlock_range(sb, (void *)curr_addr,
+					   CACHELINE_SIZE);
+			pmfs_flush_buffer((void *)curr_addr,
+					  PMFS_INODE_SIZE, 1);
+		}
+	}
+
+	pmfs_dbg_verbose("%s: Found the pmfs inode for ino = %lu\n",
+			 __func__, ino);
+
+	curr = pmfs_get_block(sb, curr);
+	return (struct pmfs_inode *)(curr + index * PMFS_INODE_SIZE);
+}
+
 /* If this is part of a read-modify-write of the inode metadata,
  * pmfs_memunlock_inode() before calling! */
+/*
 static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb,
 						  u64	ino)
 {
@@ -139,6 +239,7 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb,
 	ino_offset = (ino & (pmfs_inode_blk_size(inode_table) - 1));
 	return (struct pmfs_inode *)((void *)ps + bp + ino_offset);
 }
+*/
 
 
 static inline struct pmfs_inode_info *PMFS_I(struct inode *inode)
@@ -190,10 +291,12 @@ extern unsigned int pmfs_free_inode_subtree(struct super_block *sb,
 		__le64 root, u32 height, u32 btype, unsigned long last_blocknr);
 extern int __pmfs_alloc_blocks(pmfs_transaction_t *trans,
 		struct super_block *sb, struct pmfs_inode *pi,
-		unsigned long file_blocknr, unsigned int num, bool zero);
+			       unsigned long file_blocknr,
+			       unsigned int num, bool zero, int cpu);
 extern int pmfs_init_inode_table(struct super_block *sb);
 extern int pmfs_alloc_blocks(pmfs_transaction_t *trans, struct inode *inode,
-		unsigned long file_blocknr, unsigned int num, bool zero);
+			     unsigned long file_blocknr, unsigned int num,
+			     bool zero, int cpu);
 extern u64 pmfs_find_data_block(struct inode *inode,
 	unsigned long file_blocknr);
 int pmfs_set_blocksize_hint(struct super_block *sb, struct pmfs_inode *pi,

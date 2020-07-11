@@ -24,6 +24,28 @@
 #include "pmfs.h"
 #include "inode.h"
 
+int pmfs_alloc_block_free_lists(struct super_block *sb)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct free_list *free_list;
+	int i;
+
+	sbi->free_lists = kcalloc(sbi->cpus, sizeof(struct free_list),
+				  GFP_KERNEL);
+
+	if (!sbi->free_lists)
+		return -ENOMEM;
+
+	for (i = 0; i < sbi->cpus; i++) {
+		free_list = pmfs_get_free_list(sb, i);
+		free_list->block_free_tree = RB_ROOT;
+		spin_lock_init(&free_list->s_lock);
+		free_list->index = i;
+	}
+
+	return 0;
+}
+
 // Initialize a free list.  Each CPU gets an equal share of the block space to
 // manage.
 static void pmfs_init_free_list(struct super_block *sb,
@@ -39,6 +61,15 @@ static void pmfs_init_free_list(struct super_block *sb,
 					per_list_blocks - 1;
 	if (index == 0)
 		free_list->block_start += sbi->head_reserved_blocks;
+}
+
+void pmfs_delete_free_lists(struct super_block *sb)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+
+	/* Each tree is freed in save_blocknode_mappings */
+	kfree(sbi->free_lists);
+	sbi->free_lists = NULL;
 }
 
 void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
@@ -65,7 +96,7 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 		free_list->num_free_blocks = free_list->block_end -
 			free_list->block_start + 1;
 		blknode = pmfs_alloc_blocknode(sb);
-		if (blocknode == NULL)
+		if (blknode == NULL)
 			PMFS_ASSERT(0);
 
 		blknode->range_low = free_list->block_start;
@@ -73,7 +104,7 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 		ret = pmfs_insert_blocktree(tree, blknode);
 		if (ret) {
 			pmfs_err(sb, "%s failed\n", __func__);
-			pmfs_free_blocknode(blknode);
+			pmfs_free_blocknode(sb, blknode);
 			return;
 		}
 		free_list->first_node = blknode;
@@ -188,14 +219,6 @@ void pmfs_destroy_range_node_tree(struct super_block *sb,
 	}
 }
 
-static struct pmfs_blocknode *pmfs_next_blocknode(struct pmfs_blocknode *i,
-						  struct list_head *head)
-{
-	if (list_is_last(&i->link, head))
-		return NULL;
-	return list_first_entry(&i->link, typeof(*i), link);
-}
-
 int pmfs_insert_blocktree(struct rb_root *tree,
 			  struct pmfs_range_node *new_node)
 {
@@ -234,12 +257,14 @@ static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 	temp = &(free_list->first_node->node);
 
 	/* Try huge block allocation for data blocks first */
+	/*
 	if (IS_DATABLOCKS_2MB_ALIGNED(num_blocks, atype)) {
 		found_hugeblock = pmfs_alloc_superpage(sb, free_list,
 					num_blocks, new_blocknr, from_tail);
 		if (found_hugeblock)
 			goto success;
 	}
+	*/
 
 	/* fallback to un-aglined allocation then */
 	while (temp) {
@@ -274,7 +299,7 @@ static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 			free_list->num_blocknode--;
 			num_blocks = curr_blocks;
 			*new_blocknr = curr->range_low;
-			pmfs_free_blocknode(curr);
+			pmfs_free_blocknode(sb, curr);
 			found = 1;
 			break;
 		}
@@ -308,107 +333,165 @@ success:
 	return num_blocks;
 }
 
-/* Caller must hold the super_block lock.  If start_hint is provided, it is
- * only valid until the caller releases the super_block lock. */
-void __pmfs_free_block(struct super_block *sb, unsigned long blocknr,
-		      unsigned short btype, struct pmfs_blocknode **start_hint)
+/* Used for both block free tree and inode inuse tree */
+int pmfs_find_free_slot(struct rb_root *tree, unsigned long range_low,
+	unsigned long range_high, struct pmfs_range_node **prev,
+	struct pmfs_range_node **next)
 {
-	struct pmfs_sb_info *sbi = PMFS_SB(sb);
-	struct list_head *head = &(sbi->block_inuse_head);
-	unsigned long new_block_low;
-	unsigned long new_block_high;
-	unsigned long num_blocks = 0;
-	struct pmfs_blocknode *i;
-	struct pmfs_blocknode *free_blocknode= NULL;
-	struct pmfs_blocknode *curr_node;
+	struct pmfs_range_node *ret_node = NULL;
+	struct rb_node *tmp;
+	int check_prev = 0, check_next = 0;
+	int ret;
 
-	num_blocks = pmfs_get_numblocks(btype);
-	new_block_low = blocknr;
-	new_block_high = blocknr + num_blocks - 1;
-
-	BUG_ON(list_empty(head));
-
-	if (start_hint && *start_hint &&
-	    new_block_low >= (*start_hint)->block_low)
-		i = *start_hint;
-	else
-		i = list_first_entry(head, typeof(*i), link);
-
-	list_for_each_entry_from(i, head, link) {
-
-		if (new_block_low > i->block_high) {
-			/* skip to next blocknode */
-			continue;
-		}
-
-		if ((new_block_low == i->block_low) &&
-			(new_block_high == i->block_high)) {
-			/* fits entire datablock */
-			if (start_hint)
-				*start_hint = pmfs_next_blocknode(i, head);
-			list_del(&i->link);
-			free_blocknode = i;
-			sbi->num_blocknode_allocated--;
-			sbi->num_free_blocks += num_blocks;
-			goto block_found;
-		}
-		if ((new_block_low == i->block_low) &&
-			(new_block_high < i->block_high)) {
-			/* Aligns left */
-			i->block_low = new_block_high + 1;
-			sbi->num_free_blocks += num_blocks;
-			if (start_hint)
-				*start_hint = i;
-			goto block_found;
-		}
-		if ((new_block_low > i->block_low) && 
-			(new_block_high == i->block_high)) {
-			/* Aligns right */
-			i->block_high = new_block_low - 1;
-			sbi->num_free_blocks += num_blocks;
-			if (start_hint)
-				*start_hint = pmfs_next_blocknode(i, head);
-			goto block_found;
-		}
-		if ((new_block_low > i->block_low) &&
-			(new_block_high < i->block_high)) {
-			/* Aligns somewhere in the middle */
-			curr_node = pmfs_alloc_blocknode(sb);
-			PMFS_ASSERT(curr_node);
-			if (curr_node == NULL) {
-				/* returning without freeing the block*/
-				goto block_found;
-			}
-			curr_node->block_low = new_block_high + 1;
-			curr_node->block_high = i->block_high;
-			i->block_high = new_block_low - 1;
-			list_add(&curr_node->link, &i->link);
-			sbi->num_free_blocks += num_blocks;
-			if (start_hint)
-				*start_hint = curr_node;
-			goto block_found;
-		}
+	ret = pmfs_find_range_node(tree, range_low, NODE_BLOCK, &ret_node);
+	if (ret) {
+		pmfs_dbg("%s ERROR: %lu - %lu already in free list\n",
+			__func__, range_low, range_high);
+		return -EINVAL;
 	}
 
-	pmfs_error_mng(sb, "Unable to free block %ld\n", blocknr);
+	if (!ret_node) {
+		*prev = *next = NULL;
+	} else if (ret_node->range_high < range_low) {
+		*prev = ret_node;
+		tmp = rb_next(&ret_node->node);
+		if (tmp) {
+			*next = container_of(tmp, struct pmfs_range_node, node);
+			check_next = 1;
+		} else {
+			*next = NULL;
+		}
+	} else if (ret_node->range_low > range_high) {
+		*next = ret_node;
+		tmp = rb_prev(&ret_node->node);
+		if (tmp) {
+			*prev = container_of(tmp, struct pmfs_range_node, node);
+			check_prev = 1;
+		} else {
+			*prev = NULL;
+		}
+	} else {
+		pmfs_dbg("%s ERROR: %lu - %lu overlaps with existing "
+			 "node %lu - %lu\n",
+			 __func__, range_low, range_high, ret_node->range_low,
+			ret_node->range_high);
+		return -EINVAL;
+	}
 
-block_found:
-
-	if (free_blocknode)
-		__pmfs_free_blocknode(free_blocknode);
+	return 0;
 }
 
-void pmfs_free_block(struct super_block *sb, unsigned long blocknr,
-		      unsigned short btype)
+int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
+	int num, unsigned short btype)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
-	mutex_lock(&sbi->s_lock);
-	__pmfs_free_block(sb, blocknr, btype, NULL);
-	mutex_unlock(&sbi->s_lock);
+	struct rb_root *tree;
+	unsigned long block_low;
+	unsigned long block_high;
+	unsigned long num_blocks = 0;
+	struct pmfs_range_node *prev = NULL;
+	struct pmfs_range_node *next = NULL;
+	struct pmfs_range_node *curr_node;
+	struct free_list *free_list;
+	int cpuid;
+	int new_node_used = 0;
+	int ret;
+
+	if (num <= 0) {
+		pmfs_dbg("%s ERROR: free %d\n", __func__, num);
+		return -EINVAL;
+	}
+
+	cpuid = blocknr / sbi->per_list_blocks;
+
+	/* Pre-allocate blocknode */
+	curr_node = pmfs_alloc_blocknode(sb);
+	if (curr_node == NULL) {
+		/* returning without freeing the block*/
+		return -ENOMEM;
+	}
+
+	free_list = pmfs_get_free_list(sb, cpuid);
+	spin_lock(&free_list->s_lock);
+
+	tree = &(free_list->block_free_tree);
+
+	num_blocks = pmfs_get_numblocks(btype) * num;
+	block_low = blocknr;
+	block_high = blocknr + num_blocks - 1;
+
+	pmfs_dbg_verbose("Free: %lu - %lu\n", block_low, block_high);
+
+	if (blocknr < free_list->block_start ||
+			blocknr + num > free_list->block_end + 1) {
+		pmfs_err(sb, "free blocks %lu to %lu, free list %d, "
+			 "start %lu, end %lu\n",
+			 blocknr, blocknr + num - 1,
+			 free_list->index,
+			 free_list->block_start,
+			 free_list->block_end);
+		ret = -EIO;
+		goto out;
+	}
+
+	ret = pmfs_find_free_slot(tree, block_low,
+				  block_high, &prev, &next);
+
+	if (ret) {
+		pmfs_dbg("%s: find free slot fail: %d\n", __func__, ret);
+		goto out;
+	}
+
+	if (prev && next && (block_low == prev->range_high + 1) &&
+			(block_high + 1 == next->range_low)) {
+		/* fits the hole */
+		rb_erase(&next->node, tree);
+		free_list->num_blocknode--;
+		prev->range_high = next->range_high;
+		if (free_list->last_node == next)
+			free_list->last_node = prev;
+		pmfs_free_blocknode(sb, next);
+		goto block_found;
+	}
+	if (prev && (block_low == prev->range_high + 1)) {
+		/* Aligns left */
+		prev->range_high += num_blocks;
+		goto block_found;
+	}
+	if (next && (block_high + 1 == next->range_low)) {
+		/* Aligns right */
+		next->range_low -= num_blocks;
+		goto block_found;
+	}
+
+	/* Aligns somewhere in the middle */
+	curr_node->range_low = block_low;
+	curr_node->range_high = block_high;
+	new_node_used = 1;
+	ret = pmfs_insert_blocktree(tree, curr_node);
+	if (ret) {
+		new_node_used = 0;
+		goto out;
+	}
+	if (!prev)
+		free_list->first_node = curr_node;
+	if (!next)
+		free_list->last_node = curr_node;
+
+	free_list->num_blocknode++;
+
+block_found:
+	free_list->num_free_blocks += num_blocks;
+out:
+	spin_unlock(&free_list->s_lock);
+	if (new_node_used == 0)
+		pmfs_free_blocknode(sb, curr_node);
+
+	return ret;
 }
 
 static int not_enough_blocks(struct free_list *free_list,
-	unsigned long num_blocks, enum alloc_type atype)
+	unsigned long num_blocks)
 {
 	struct pmfs_range_node *first = free_list->first_node;
 	struct pmfs_range_node *last = free_list->last_node;
@@ -445,7 +528,7 @@ static int pmfs_get_candidate_free_list(struct super_block *sb)
 }
 
 int pmfs_new_blocks(struct super_block *sb, unsigned long *blocknr,
-		    unsigned int num, unsigned short btype, int zero, int cpu)
+		    unsigned int num, unsigned short btype, int zero, int cpuid)
 {
 	struct free_list *free_list;
 	void *bp;
@@ -468,7 +551,7 @@ retry:
 	free_list = pmfs_get_free_list(sb, cpuid);
 	spin_lock(&free_list->s_lock);
 
-	if (not_enough_blocks(free_list, num_blocks, atype)) {
+	if (not_enough_blocks(free_list, num_blocks)) {
 		pmfs_dbg_verbose("%s: cpu %d, free_blocks %lu, required %lu, "
 			  "blocknode %lu\n",
 			  __func__, cpuid, free_list->num_free_blocks,
@@ -485,12 +568,7 @@ retry:
 	}
 alloc:
 	ret_blocks = pmfs_alloc_blocks_in_free_list(sb, free_list, btype,
-					num_blocks, &new_blocknr, from_tail);
-
-	if (ret_blocks > 0) {
-		free_list->alloc_data_count++;
-		free_list->alloc_data_pages += ret_blocks;
-	}
+					num_blocks, &new_blocknr);
 
 	spin_unlock(&free_list->s_lock);
 

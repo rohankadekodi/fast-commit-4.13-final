@@ -53,23 +53,31 @@ enum node_type {
 	NODE_DIR,
 };
 
+int pmfs_alloc_block_free_lists(struct super_block *sb);
 struct pmfs_range_node *pmfs_alloc_inode_node(struct super_block *sb);
+void pmfs_delete_free_lists(struct super_block *sb);
 struct pmfs_range_node *pmfs_alloc_dir_node(struct super_block *sb);
 void pmfs_free_range_node(struct pmfs_range_node *node);
 void pmfs_free_inode_node(struct pmfs_range_node *node);
 extern void pmfs_free_dir_node(struct pmfs_range_node *bnode);
 extern int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
-				enum node_type type, struct pmfs_range_node **ret_node);
+				enum node_type type,
+				struct pmfs_range_node **ret_node);
 int pmfs_search_inodetree(struct pmfs_sb_info *sbi,
 			  unsigned long ino, struct pmfs_range_node **ret_node);
 int pmfs_insert_inodetree(struct pmfs_sb_info *sbi,
-			  struct pmfs_range_node *new_node);
+			  struct pmfs_range_node *new_node, int cpuid);
 
 extern int pmfs_insert_range_node(struct rb_root *tree,
-				  struct pmfs_range_node *new_node, enum node_type type);
+				  struct pmfs_range_node *new_node,
+				  enum node_type type);
 void pmfs_destroy_range_node_tree(struct super_block *sb,
 				  struct rb_root *tree);
 int pmfs_insert_blocktree(struct rb_root *tree,
 			  struct pmfs_range_node *new_node);
+int pmfs_find_free_slot(struct rb_root *tree, unsigned long range_low,
+			unsigned long range_high, struct pmfs_range_node **prev,
+			struct pmfs_range_node **next);
+
 
 #endif

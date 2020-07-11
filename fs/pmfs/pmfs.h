@@ -162,15 +162,12 @@ extern void pmfs_error_mng(struct super_block *sb, const char *fmt, ...);
 extern int pmfs_mmap(struct file *file, struct vm_area_struct *vma);
 
 /* balloc.c */
-int pmfs_setup_blocknode_map(struct super_block *sb);
-extern struct pmfs_blocknode *pmfs_alloc_blocknode(struct super_block *sb);
-extern void pmfs_free_blocknode(struct super_block *sb, struct pmfs_blocknode *bnode);
+extern struct pmfs_range_node *pmfs_alloc_blocknode(struct super_block *sb);
+extern void pmfs_free_blocknode(struct super_block *sb, struct pmfs_range_node *bnode);
 extern void pmfs_init_blockmap(struct super_block *sb,
 		unsigned long init_used_size);
-extern void pmfs_free_block(struct super_block *sb, unsigned long blocknr,
+extern int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr, int num,
 	unsigned short btype);
-extern void __pmfs_free_block(struct super_block *sb, unsigned long blocknr,
-	unsigned short btype, struct pmfs_blocknode **start_hint);
 extern int pmfs_new_blocks(struct super_block *sb, unsigned long *blocknr,
 			   unsigned int num, unsigned short btype, int zero,
 			   int cpu);
@@ -198,7 +195,7 @@ extern long pmfs_compat_ioctl(struct file *file, unsigned int cmd,
 #ifdef CONFIG_PMFS_TEST
 extern struct pmfs_super_block *get_pmfs_super(void);
 #endif
-extern void __pmfs_free_blocknode(struct pmfs_blocknode *bnode);
+extern void __pmfs_free_blocknode(struct pmfs_range_node *bnode);
 extern struct super_block *pmfs_read_super(struct super_block *sb, void *data,
 	int silent);
 extern int pmfs_statfs(struct dentry *d, struct kstatfs *buf);
@@ -236,12 +233,6 @@ static inline int pmfs_calc_checksum(u8 *data, int n)
 struct pmfs_blocknode_lowhigh {
        __le64 block_low;
        __le64 block_high;
-};
-
-struct pmfs_blocknode {
-	struct list_head link;
-	unsigned long block_low;
-	unsigned long block_high;
 };
 
 struct inode_map {
@@ -322,6 +313,11 @@ struct pmfs_sb_info {
 	/* Per-CPU free blocks list */
 	struct free_list *free_lists;
 	unsigned long per_list_blocks;
+};
+
+struct pmfs_range_node_lowhigh {
+	__le64 range_low;
+	__le64 range_high;
 };
 
 struct pmfs_range_node {
@@ -478,6 +474,13 @@ pmfs_get_block_off(struct super_block *sb, unsigned long blocknr,
 	return (u64)blocknr << PAGE_SHIFT;
 }
 
+static inline int pmfs_get_cpuid(struct super_block *sb)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+
+	return smp_processor_id() % sbi->cpus;
+}
+
 static inline unsigned long
 pmfs_get_numblocks(unsigned short btype)
 {
@@ -570,6 +573,8 @@ int pmfs_search_dirblock(u8 *blk_base, struct inode *dir, struct qstr *child,
 			  unsigned long offset,
 			  struct pmfs_direntry **res_dir,
 			  struct pmfs_direntry **prev_dir);
+
+#define ANY_CPU                (65536)
 
 /* pmfs_stats.c */
 #define	PMFS_PRINT_TIMING	0xBCD00010
