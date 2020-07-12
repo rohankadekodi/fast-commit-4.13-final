@@ -514,6 +514,17 @@ static inline int pmfs_is_mounting(struct super_block *sb)
 	return sbi->s_mount_opt & PMFS_MOUNT_MOUNTING;
 }
 
+static inline int is_dir_init_entry(struct super_block *sb,
+	struct pmfs_direntry *entry)
+{
+	if (entry->name_len == 1 && strncmp(entry->name, ".", 1) == 0)
+		return 1;
+	if (entry->name_len == 2 && strncmp(entry->name, "..", 2) == 0)
+		return 1;
+
+	return 0;
+}
+
 #include "wprotect.h"
 #include "balloc.h"
 
@@ -531,6 +542,9 @@ int pmfs_remove_dir_tree(struct super_block *sb,
 			 struct pmfs_direntry **create_dentry);
 void pmfs_delete_dir_tree(struct super_block *sb,
 			  struct pmfs_inode_info_header *sih);
+struct pmfs_direntry *pmfs_find_dentry(struct super_block *sb,
+				       struct pmfs_inode *pi, struct inode *inode,
+				       const char *name, unsigned long name_len);
 
 /* file.c */
 extern const struct inode_operations pmfs_file_inode_operations;

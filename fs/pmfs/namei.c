@@ -67,6 +67,7 @@ int pmfs_check_dir_entry(const char *function, struct inode *dir,
 			  unsigned long offset)
 {
 	const char *error_msg = NULL;
+
 	const int rlen = le16_to_cpu(de->de_len);
 
 	if (unlikely(rlen < PMFS_DIR_REC_LEN(1)))
@@ -107,6 +108,7 @@ int pmfs_search_dirblock(u8 *blk_base, struct inode *dir, struct qstr *child,
 	de = (struct pmfs_direntry *)blk_base;
 	dlimit = blk_base + dir->i_sb->s_blocksize;
 	while ((char *)de < dlimit) {
+
 		/* this code is executed quadratically often */
 		/* do minimal checking `by hand' */
 
@@ -132,6 +134,22 @@ int pmfs_search_dirblock(u8 *blk_base, struct inode *dir, struct qstr *child,
 	return 0;
 }
 
+static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
+				 struct pmfs_direntry **res_entry)
+{
+	struct super_block *sb = dir->i_sb;
+	struct pmfs_direntry *direntry;
+
+	direntry = pmfs_find_dentry(sb, NULL, dir,
+				    entry->name, entry->len);
+	if (direntry == NULL)
+		return 0;
+
+	*res_entry = direntry;
+	return direntry->ino;
+}
+
+#if 0
 static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
 				 struct pmfs_direntry **res_entry)
 {
@@ -196,6 +214,7 @@ restart:
 done:
 	return i_no;
 }
+#endif
 
 static struct dentry *pmfs_lookup(struct inode *dir, struct dentry *dentry,
 				   unsigned int flags)
@@ -556,6 +575,34 @@ out_clear_inode:
  */
 static int pmfs_empty_dir(struct inode *inode)
 {
+	struct super_block *sb = inode->i_sb;
+	struct pmfs_inode_info *si = PMFS_I(inode);
+	struct pmfs_inode_info_header *sih = &si->header;
+	struct pmfs_range_node *curr;
+	struct pmfs_direntry *entry;
+	struct rb_node *temp;
+
+	temp = rb_first(&sih->rb_tree);
+	while (temp) {
+		curr = container_of(temp, struct pmfs_range_node, node);
+		entry = curr->direntry;
+
+		if (!is_dir_init_entry(sb, entry))
+			return 0;
+
+		temp = rb_next(temp);
+	}
+
+	return 1;
+}
+
+
+#if 0
+/*
+ * routine to check that the specified directory is empty (for rmdir)
+ */
+static int pmfs_empty_dir(struct inode *inode)
+{
 	unsigned long offset;
 	struct pmfs_direntry *de, *de1;
 	struct super_block *sb;
@@ -615,6 +662,7 @@ static int pmfs_empty_dir(struct inode *inode)
 	}
 	return 1;
 }
+#endif
 
 static int pmfs_rmdir(struct inode *dir, struct dentry *dentry)
 {

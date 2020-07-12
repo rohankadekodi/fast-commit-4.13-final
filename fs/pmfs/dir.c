@@ -154,54 +154,40 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 	 * directory entry. Needs to be optimized
 	 */
 	reclen = PMFS_DIR_REC_LEN(namelen);
+
 	if (!de) {
-		de = (struct pmfs_direntry *)blk_base;
 		top = blk_base + dir->i_sb->s_blocksize - reclen;
-		while ((char *)de <= top) {
-#if 0
-			if (!pmfs_check_dir_entry("pmfs_add_dirent_to_buf",
-			    dir, de, blk_base, offset))
-				return -EIO;
-			if (pmfs_match(namelen, name, de))
-				return -EEXIST;
-#endif
-			rlen = le16_to_cpu(de->de_len);
-			if (de->ino) {
-				nlen = PMFS_DIR_REC_LEN(de->name_len);
-				if ((rlen - nlen) >= reclen)
-					break;
-			} else if (rlen >= reclen)
-				break;
-			de = (struct pmfs_direntry *)((char *)de + rlen);
+
+		if (sih->last_dentry == NULL) {
+			return -ENOSPC;
 		}
+
+		de = (struct pmfs_direntry *)(sih->last_dentry);
+		rlen = le16_to_cpu(de->de_len);
+		de = (struct pmfs_direntry *)((char *) de + rlen);
 		if ((char *)de > top)
 			return -ENOSPC;
-	}
-	rlen = le16_to_cpu(de->de_len);
 
-	if (de->ino) {
-		struct pmfs_direntry *de1;
-		pmfs_add_logentry(dir->i_sb, trans, &de->de_len,
-			sizeof(de->de_len), LE_DATA);
-		nlen = PMFS_DIR_REC_LEN(de->name_len);
-		de1 = (struct pmfs_direntry *)((char *)de + nlen);
 		pmfs_memunlock_block(dir->i_sb, blk_base);
-		de1->de_len = cpu_to_le16(rlen - nlen);
-		de->de_len = cpu_to_le16(nlen);
+		de->de_len = reclen;
 		pmfs_memlock_block(dir->i_sb, blk_base);
-		de = de1;
-	} else {
-		pmfs_add_logentry(dir->i_sb, trans, &de->ino,
-			sizeof(de->ino), LE_DATA);
 	}
+
+	pmfs_add_logentry(dir->i_sb, trans, &de->ino,
+			  sizeof(de->ino), LE_DATA);
+
+	sih->last_dentry = (struct pmfs_direntry *) (de);
+
+	pmfs_add_logentry(dir->i_sb, trans, &de->ino,
+			  sizeof(de->ino), LE_DATA);
+
 	pmfs_memunlock_block(dir->i_sb, blk_base);
-	/*de->file_type = 0;*/
 	if (inode) {
 		de->ino = cpu_to_le64(inode->i_ino);
-		/*de->file_type = IF2DT(inode->i_mode); */
 	} else {
 		de->ino = 0;
 	}
+
 	de->name_len = namelen;
 	memcpy(de->name, name, namelen);
 	pmfs_memlock_block(dir->i_sb, blk_base);
@@ -278,11 +264,11 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	de = (struct pmfs_direntry *)blk_base;
 	pmfs_memunlock_block(sb, blk_base);
 	de->ino = 0;
-	de->de_len = cpu_to_le16(sb->s_blocksize);
+	de->de_len = PMFS_DIR_REC_LEN(dentry->d_name.len);
 	pmfs_memlock_block(sb, blk_base);
 	/* Since this is a new block, no need to log changes to this block */
 	retval = pmfs_add_dirent_to_buf(NULL, dentry, inode, de, blk_base,
-		pidir);
+					pidir);
 out:
 	return retval;
 }
@@ -415,6 +401,11 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 		while (ctx->pos < inode->i_size
 		       && offset < sb->s_blocksize) {
 			de = (struct pmfs_direntry *)(blk_base + offset);
+			if (de->de_len < PMFS_DIR_REC_LEN(1)) {
+				ctx->pos = ALIGN(ctx->pos, sb->s_blocksize);
+				break;
+			}
+
 			if (!pmfs_check_dir_entry("pmfs_readdir", inode, de,
 						   blk_base, offset)) {
 				/* On error, skip to the next block. */

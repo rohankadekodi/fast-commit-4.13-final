@@ -44,6 +44,7 @@ void pmfs_init_header(struct super_block *sb,
 	sih->i_mode = i_mode;
 	sih->i_flags = 0;
 	sih->i_blk_type = PMFS_DEFAULT_BLOCK_TYPE;
+	sih->last_dentry = NULL;
 }
 
 static inline int get_block_cpuid(struct pmfs_sb_info *sbi,
