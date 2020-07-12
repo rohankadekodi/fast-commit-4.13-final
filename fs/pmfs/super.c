@@ -983,6 +983,15 @@ static struct inode *pmfs_alloc_inode(struct super_block *sb)
 	return &vi->vfs_inode;
 }
 
+struct pmfs_range_node *pmfs_alloc_range_node_atomic(struct super_block *sb)
+{
+	struct pmfs_range_node *p;
+
+	p = (struct pmfs_range_node *)
+		kmem_cache_zalloc(pmfs_range_node_cachep, GFP_ATOMIC);
+	return p;
+}
+
 struct pmfs_range_node *pmfs_alloc_range_node(struct super_block *sb)
 {
 	struct pmfs_range_node *p;

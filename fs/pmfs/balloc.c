@@ -234,6 +234,126 @@ int pmfs_insert_blocktree(struct rb_root *tree,
 	return ret;
 }
 
+struct pmfs_range_node *pmfs_alloc_blocknode_atomic(struct super_block *sb)
+{
+	return pmfs_alloc_range_node_atomic(sb);
+}
+
+#define PAGES_PER_2MB 512
+#define PAGES_PER_2MB_MASK (512 - 1)
+#define IS_DATABLOCKS_2MB_ALIGNED(numblocks) \
+	(!(num_blocks & PAGES_PER_2MB_MASK))
+
+bool pmfs_alloc_superpage(struct super_block *sb,
+	struct free_list *free_list, unsigned long num_blocks,
+	unsigned long *new_blocknr)
+{
+	struct rb_root *tree;
+	struct rb_node *temp;
+	struct pmfs_range_node *curr;
+	unsigned long curr_blocks;
+	bool found = 0;
+	unsigned long step = 0;
+
+	unsigned int left_margin;
+	unsigned int right_margin;
+
+	tree = &(free_list->block_free_tree);
+	temp = &(free_list->first_node->node);
+
+	while (temp) {
+		step++;
+		curr = container_of(temp, struct pmfs_range_node, node);
+
+		curr_blocks = curr->range_high - curr->range_low + 1;
+		left_margin = PAGES_PER_2MB -
+			(curr->range_low & PAGES_PER_2MB_MASK);
+
+		/*
+		 * Guard against cases where:
+		 * a. Unaligned free blocks is smaller than #512
+		 *    left_margin could larger than curr_blocks.
+		 * b. After alignment, free blocks is smaller than
+		 *    requested blocks.
+		 * Otherwise, we are free to go.
+		 */
+		if ((curr_blocks > left_margin) && \
+			(num_blocks <= (curr_blocks - left_margin))) {
+			struct pmfs_range_node *node;
+			unsigned long saved_range_high = curr->range_high;
+
+			*new_blocknr = curr->range_low + left_margin;
+			right_margin = curr_blocks - left_margin - num_blocks;
+			pmfs_dbg_verbose("curr:%p: num_blocks:%lu curr->range_low:%lu high:%lu",
+						curr, num_blocks, curr->range_low, curr->range_high);
+
+			if (left_margin) {
+				/* Reuse "curr" and its "first_node" indicator. */
+				curr->range_high = curr->range_low + left_margin - 1;
+				pmfs_dbg_verbose("Insert node for left_margin, range_low:%lu high:%lu",
+						 curr->range_low, curr->range_high);
+			}
+
+			if (right_margin) {
+				if (left_margin) {
+					/* curr was reused for left_margin node, grab new one. */
+					node = pmfs_alloc_blocknode_atomic(sb);
+					if (node == NULL) {
+						pmfs_warn("Failed to allocate new block node.\n");
+						return -ENOMEM;
+					}
+					node->range_low = curr->range_low + left_margin + num_blocks;
+					node->range_high = saved_range_high;
+					pmfs_insert_blocktree(tree, node);
+					free_list->num_blocknode++;
+					if (curr == free_list->last_node)
+						free_list->last_node = node;
+				} else {
+					/*
+					 * curr->range_low is aligned, reuse curr for right_margin.
+					 * Update the checksum as needed.
+					 */
+					curr->range_low = curr->range_low + num_blocks;
+				}
+				pmfs_dbg_verbose("Insert node for right_margin, range_low:%lu high:%lu",
+						 node->range_low, node->range_high);
+			}
+
+			/* Catch up special case where curr is aligned and used up. */
+			if (!left_margin && !right_margin) {
+
+				/* corner case in corner, spotted by Andiry. */
+				node = NULL;
+				if (curr == free_list->first_node) {
+					temp = rb_next(temp);
+					if (temp)
+						node = container_of(temp, struct pmfs_range_node, node);
+					free_list->first_node = node;
+				}
+				if (curr == free_list->last_node) {
+					temp = rb_prev(temp);
+					if (temp)
+						node = container_of(temp, struct pmfs_range_node, node);
+					free_list->last_node = node;
+				}
+
+				/* release curr after updating {first, last}_node */
+				rb_erase(&curr->node, tree);
+				pmfs_free_blocknode(curr);
+				free_list->num_blocknode--;
+			}
+
+			found = 1;
+			break;
+		}
+next:
+		temp = rb_next(temp);
+	}
+
+	return found;
+}
+
+
 /* Return how many blocks allocated */
 static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 	struct free_list *free_list, unsigned short btype,
@@ -260,14 +380,12 @@ static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 	temp = &(free_list->first_node->node);
 
 	/* Try huge block allocation for data blocks first */
-	/*
-	if (IS_DATABLOCKS_2MB_ALIGNED(num_blocks, atype)) {
+	if (IS_DATABLOCKS_2MB_ALIGNED(num_blocks)) {
 		found_hugeblock = pmfs_alloc_superpage(sb, free_list,
-					num_blocks, new_blocknr, from_tail);
+					num_blocks, new_blocknr);
 		if (found_hugeblock)
 			goto success;
 	}
-	*/
 
 	/* fallback to un-aglined allocation then */
 	while (temp) {
