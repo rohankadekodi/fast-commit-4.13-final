@@ -156,7 +156,7 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
 	unsigned long curr_addr;
 	int allocated;
 
-	if (ino == 0)
+	if (ino > PMFS_BLOCKNODE_IN0 && ino < PMFS_NORMAL_INODE_START)
 		return NULL;
 
 	data_bits = blk_type_to_shift[pmfs_inode_table->i_blk_type];
@@ -170,6 +170,9 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
 	index = internal_ino & ((1 << num_inodes_bits) - 1);
 
 	curr = inode_table->log_head;
+
+	pmfs_dbg_verbose("%s: cpuid = %d. ino = %lu. internal_ino = %lu. inode_table = 0x%p. superpage_count = %u. index = %d. curr = %llu log_head addr = 0x%p\n", __func__, cpuid, ino, internal_ino, inode_table, superpage_count, index, curr, &(inode_table->log_head));
+
 	if (curr == 0) {
 		pmfs_dbg_verbose("%s: could not find inode for ino = %lu\n",
 				 __func__, ino);
@@ -199,6 +202,10 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
 				return NULL;
 			}
 
+			pmfs_dbg_verbose("%s: extended inode table for cpu = %d\n",
+					 __func__, cpuid);
+
+
 			curr = pmfs_get_block_off(sb, blocknr,
 						  PMFS_BLOCK_TYPE_2M);
 			pmfs_memunlock_range(sb, (void *)curr_addr,
@@ -214,7 +221,7 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
 	pmfs_dbg_verbose("%s: Found the pmfs inode for ino = %lu\n",
 			 __func__, ino);
 
-	curr = pmfs_get_block(sb, curr);
+	curr = (u64)pmfs_get_block(sb, curr);
 	return (struct pmfs_inode *)(curr + index * PMFS_INODE_SIZE);
 }
 

@@ -126,6 +126,7 @@ static void pmfs_flush_transaction(struct super_block *sb,
 	for (i = 0; i < trans->num_used; i++, le++) {
 		if (le->size) {
 			data = pmfs_get_block(sb,le64_to_cpu(le->addr_offset));
+			pmfs_dbg_verbose("%s: data = 0x%p. size = %lu\n", __func__, data, le->size);
 			if (sbi->redo_log) {
 				pmfs_memunlock_range(sb, data, le->size);
 				memcpy(data, le->data, le->size);
@@ -680,6 +681,11 @@ int pmfs_add_logentry(struct super_block *sb,
 		dump_transaction(sbi, trans);
 		dump_stack();
 		return -ENOMEM;
+	}
+
+	if (addr) {
+		pmfs_dbg_verbose("%s: trans start addr = 0x%p. le = 0x%p. le_start = 0x%llu. num_les = %d. param addr = 0x%p. size = %u. type = %u\n",
+				 __func__, trans->start_addr, le, le_start, num_les, addr, size, type);
 	}
 
 	pmfs_memunlock_range(sb, le, sizeof(*le) * num_les);

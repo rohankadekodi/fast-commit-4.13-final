@@ -119,7 +119,7 @@ static void pmfs_init_blockmap_from_inode(struct super_block *sb)
 		ret = pmfs_insert_blocktree(&free_list->block_free_tree, blknode);
 		if (ret) {
 			pmfs_err(sb, "%s failed\n", __func__);
-			pmfs_free_blocknode(sb, blknode);
+			pmfs_free_blocknode(blknode);
 			PMFS_ASSERT(0);
 			pmfs_destroy_blocknode_tree(sb, cpuid);
 			return;

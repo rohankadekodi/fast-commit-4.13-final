@@ -46,12 +46,12 @@ MODULE_PARM_DESC(measure_timing, "Timing measurement");
 static struct super_operations pmfs_sops;
 static const struct export_operations pmfs_export_ops;
 static struct kmem_cache *pmfs_inode_cachep;
-static struct kmem_cache *pmfs_blocknode_cachep;
 static struct kmem_cache *pmfs_transaction_cachep;
 static struct kmem_cache *pmfs_range_node_cachep;
 
 /* FIXME: should the following variable be one per PMFS instance? */
-unsigned int pmfs_dbgmask = 0x00000010;
+//unsigned int pmfs_dbgmask = 0x00000010;
+unsigned int pmfs_dbgmask = 0;
 
 #ifdef CONFIG_PMFS_TEST
 static void *first_pmfs_super;
@@ -390,9 +390,10 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 		return ERR_PTR(-EINVAL);
 	}
 
-	journal_data_start = PMFS_SB_SIZE * 2;
-	journal_data_start = (journal_data_start + blocksize - 1) &
-		~(blocksize - 1);
+	journal_data_start = (INODE_TABLE0_START + INODE_TABLE_NUM_BLOCKS) * blocksize;
+	//journal_data_start = PMFS_SB_SIZE * 2;
+	//journal_data_start = (journal_data_start + blocksize - 1) &
+	//	~(blocksize - 1);
 
 	pmfs_dbg_verbose("journal meta start %llx data start 0x%llx, "
 		"journal size 0x%x, inode_table 0x%llx\n", journal_meta_start,
@@ -959,16 +960,9 @@ void pmfs_free_dir_node(struct pmfs_range_node *node)
 	pmfs_free_range_node(node);
 }
 
-void __pmfs_free_blocknode(struct pmfs_range_node *bnode)
+void pmfs_free_blocknode(struct pmfs_range_node *node)
 {
-	kmem_cache_free(pmfs_blocknode_cachep, bnode);
-}
-
-void pmfs_free_blocknode(struct super_block *sb, struct pmfs_range_node *bnode)
-{
-	struct pmfs_sb_info *sbi = PMFS_SB(sb);
-	sbi->num_blocknode_allocated--;
-	__pmfs_free_blocknode(bnode);
+	pmfs_free_range_node(node);
 }
 
 inline pmfs_transaction_t *pmfs_alloc_transaction(void)

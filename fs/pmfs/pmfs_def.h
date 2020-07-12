@@ -51,7 +51,9 @@
 
 #define PMFS_INODE_SIZE 128    /* must be power of two */
 #define PMFS_INODE_BITS   7
-#define INODE_TABLE0_START 16
+#define INODE_TABLE0_START 1
+#define INODE_TABLE_NUM_BLOCKS 5 /* Can host inode tables for up to 64 x 5 cpus */
+#define HEAD_RESERVED_BLOCKS 64
 
 #define PMFS_NAME_LEN 255
 /*
@@ -156,6 +158,7 @@ struct pmfs_super_block {
 #define PMFS_BLOCKNODE_IN0 (2)
 
 #define PMFS_FREE_INODE_HINT_START      (3)
+#define PMFS_NORMAL_INODE_START         (32)
 
 /* ======================= Write ordering ========================= */
 

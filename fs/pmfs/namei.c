@@ -47,6 +47,7 @@ static inline int pmfs_add_nondir(pmfs_transaction_t *trans,
 		return 0;
 	}
 	pi = pmfs_get_inode(inode->i_sb, inode->i_ino);
+
 	pmfs_dec_count(inode, pi);
 	unlock_new_inode(inode);
 	iput(inode);
@@ -262,6 +263,7 @@ static int pmfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	pmfs_commit_transaction(sb, trans);
 out:
 	PMFS_END_TIMING(create_t, create_time);
+	pmfs_dbg_verbose("%s: successful. Return value = %d\n", __func__, err);
 	return err;
 out_err:
 	pmfs_abort_transaction(sb, trans);
@@ -449,6 +451,7 @@ static int pmfs_unlink(struct inode *dir, struct dentry *dentry)
 
 	pmfs_commit_transaction(sb, trans);
 	PMFS_END_TIMING(unlink_t, unlink_time);
+
 	return 0;
 end_unlink:
 	pmfs_abort_transaction(sb, trans);

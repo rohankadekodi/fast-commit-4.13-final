@@ -87,6 +87,9 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 
 	sbi->head_reserved_blocks = num_used_block;
 
+	pmfs_dbg_verbose("%s: sbi->head_reserved_blocks = %lu\n", __func__,
+			 sbi->head_reserved_blocks);
+
 	sbi->per_list_blocks = sbi->num_blocks / sbi->cpus;
 	for (i = 0; i < sbi->cpus; i++) {
 		free_list = pmfs_get_free_list(sb, i);
@@ -104,7 +107,7 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 		ret = pmfs_insert_blocktree(tree, blknode);
 		if (ret) {
 			pmfs_err(sb, "%s failed\n", __func__);
-			pmfs_free_blocknode(sb, blknode);
+			pmfs_free_blocknode(blknode);
 			return;
 		}
 		free_list->first_node = blknode;
@@ -159,7 +162,7 @@ int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
 		} else if (compVal == 1) {
 			temp = temp->rb_right;
 		} else {
-			ret = -1;
+			ret = 1;
 			break;
 		}
 	}
@@ -299,7 +302,7 @@ static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 			free_list->num_blocknode--;
 			num_blocks = curr_blocks;
 			*new_blocknr = curr->range_low;
-			pmfs_free_blocknode(sb, curr);
+			pmfs_free_blocknode(curr);
 			found = 1;
 			break;
 		}
@@ -450,7 +453,7 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 		prev->range_high = next->range_high;
 		if (free_list->last_node == next)
 			free_list->last_node = prev;
-		pmfs_free_blocknode(sb, next);
+		pmfs_free_blocknode(next);
 		goto block_found;
 	}
 	if (prev && (block_low == prev->range_high + 1)) {
@@ -485,7 +488,7 @@ block_found:
 out:
 	spin_unlock(&free_list->s_lock);
 	if (new_node_used == 0)
-		pmfs_free_blocknode(sb, curr_node);
+		pmfs_free_blocknode(curr_node);
 
 	return ret;
 }
@@ -595,5 +598,14 @@ alloc:
 unsigned long pmfs_count_free_blocks(struct super_block *sb)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
-	return sbi->num_free_blocks; 
+	struct free_list *free_list;
+	unsigned long num_free_blocks = 0;
+	int i;
+
+	for (i = 0; i < sbi->cpus; i++) {
+		free_list = pmfs_get_free_list(sb, i);
+		num_free_blocks += free_list->num_free_blocks;
+	}
+
+	return num_free_blocks; 
 }

@@ -38,9 +38,9 @@ int pmfs_init_inode_inuse_list(struct super_block *sb)
 	int i;
 	int ret;
 
-	sbi->s_inodes_used_count = PMFS_FREE_INODE_HINT_START;
-	range_high = PMFS_FREE_INODE_HINT_START;
-	if (PMFS_FREE_INODE_HINT_START % sbi->cpus)
+	sbi->s_inodes_used_count = PMFS_NORMAL_INODE_START;
+	range_high = PMFS_NORMAL_INODE_START / sbi->cpus;
+	if (PMFS_NORMAL_INODE_START % sbi->cpus)
 		range_high++;
 
 	for (i = 0; i < sbi->cpus; i++) {
@@ -75,7 +75,7 @@ static int pmfs_new_data_blocks(struct super_block *sb, struct pmfs_inode *pi,
 {
 	int allocated;
 	unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
-	
+
 	allocated = pmfs_new_blocks(sb, blocknr, num,
 				    pi->i_blk_type, zero,
 				    cpu);
@@ -283,13 +283,15 @@ static int recursive_truncate_blocks(struct super_block *sb, __le64 block,
 	u32 height, u32 btype, unsigned long first_blocknr,
 	unsigned long last_blocknr, bool *meta_empty)
 {
-	unsigned long blocknr, first_blk, last_blk;
+	unsigned long blocknr = 0, first_blk, last_blk;
 	unsigned int node_bits, first_index, last_index, i;
 	__le64 *node;
 	unsigned int freed = 0, bzero;
 	int start, end;
 	bool mpty, all_range_freed = true;
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	unsigned long prev_blocknr = 0;
+	int j;
 
 	node = pmfs_get_block(sb, le64_to_cpu(block));
 
@@ -299,9 +301,41 @@ static int recursive_truncate_blocks(struct super_block *sb, __le64 block,
 	end = last_index = last_blocknr >> node_bits;
 
 	if (height == 1) {
-		blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[first_index]), btype);
-		pmfs_free_blocks(sb, blocknr, last_index - first_index + 1, btype);
-		freed += (last_index - first_index + 1);
+		i = first_index;
+		while (i <= last_index) {
+			for (j = i; j <= last_index; j++) {
+				if (unlikely(!node[j])) {
+					blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[i]), btype);
+					pmfs_free_blocks(sb, blocknr, (j - i), btype);
+					freed += (j - i);
+					i = j + 1;
+					prev_blocknr = 0;
+					blocknr = 0;
+					break;
+				} else {
+					prev_blocknr = blocknr;
+					blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[j]), btype);
+				}
+
+				if (blocknr != (prev_blocknr + 1) && prev_blocknr != 0) {
+					blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[i]), btype);
+					pmfs_free_blocks(sb, blocknr, (j - i), btype);
+					freed += (j - i);
+					i = j;
+					prev_blocknr = 0;
+					blocknr = 0;
+					break;
+				}
+			}
+			if (j == last_index + 1) {
+				if (i < j) {
+					blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[i]), btype);
+					pmfs_free_blocks(sb, blocknr, (j - i), btype);
+					freed += (j - i);
+					i = j;
+				}
+			}
+		}
 	} else {
 		for (i = first_index; i <= last_index; i++) {
 			if (unlikely(!node[i]))
@@ -561,7 +595,7 @@ static int pmfs_increase_btree_height(struct super_block *sb,
 		/* allocate the meta block */
 		errval = pmfs_new_blocks(sb, &blocknr, 1,
 					 PMFS_BLOCK_TYPE_4K, 1, ANY_CPU);
-		if (errval) {
+		if (errval < 0) {
 			pmfs_err(sb, "failed to increase btree height\n");
 			break;
 		}
@@ -578,7 +612,7 @@ static int pmfs_increase_btree_height(struct super_block *sb,
 	pi->root = prev_root;
 	pi->height = height;
 	pmfs_memlock_inode(sb, pi);
-	return errval;
+	return 0;
 }
 
 /* recursive_alloc_blocks: recursively allocate a range of blocks from
@@ -621,7 +655,7 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 								 &blocknr,
 								 num_blocks,
 								 zero, cpu);
-				if (allocated < 0) {
+				if (allocated <= 0) {
 					pmfs_dbg("%s: alloc %d blocks failed!, %d\n",
 						 __func__, num_blocks, allocated);
 					pmfs_memunlock_inode(sb, pi);
@@ -641,8 +675,9 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				pmfs_memunlock_block(sb, node);
 				for (j = i; j < i+allocated; j++) {
 					node[j] = cpu_to_le64(pmfs_get_block_off(sb,
-										 blocknr++,
+										 blocknr,
 										 pi->i_blk_type));
+					blocknr++;
 				}
 				pmfs_memlock_block(sb, node);
 				i += allocated;
@@ -655,7 +690,7 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				errval = pmfs_new_blocks(sb, &blocknr, 1,
 							 PMFS_BLOCK_TYPE_4K,
 							 1, cpu);
-				if (errval) {
+				if (errval < 0) {
 					pmfs_dbg_verbose("alloc meta blk"
 						" failed\n");
 					goto fail;
@@ -751,7 +786,7 @@ int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 			__le64 root;
 			errval = pmfs_new_data_blocks(sb, pi, &blocknr,
 						      1, zero, cpu);
-			if (errval) {
+			if (errval < 0) {
 				pmfs_dbg_verbose("[%s:%d] failed: alloc data"
 					" block\n", __func__, __LINE__);
 				goto fail;
@@ -1033,12 +1068,12 @@ static int pmfs_free_inuse_inode(struct super_block *sb, unsigned long ino)
 	}
 	if ((internal_ino == i->range_low) && (internal_ino < i->range_high)) {
 		/* Aligns left */
-		i->range_low = ino + 1;
+		i->range_low = internal_ino + 1;
 		goto block_found;
 	}
 	if ((internal_ino > i->range_low) && (internal_ino == i->range_high)) {
 		/* Aligns right */
-		i->range_high = ino - 1;
+		i->range_high = internal_ino - 1;
 		goto block_found;
 	}
 	if ((internal_ino > i->range_low) && (internal_ino < i->range_high)) {
@@ -1073,7 +1108,7 @@ err:
 block_found:
 	sbi->s_inodes_used_count--;
 	inode_map->freed++;
-	//mutex_unlock(&inode_map->inode_table_mutex);
+	mutex_unlock(&inode_map->inode_table_mutex);
 	return ret;
 }
 
@@ -1479,7 +1514,7 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	*/
 
 	pi = pmfs_get_inode(sb, ino);
-	pmfs_dbg_verbose("%s: ino got from the tree = %lu", __func__, ino);
+	pmfs_dbg_verbose("%s: ino = %lu, pmfs_inode = 0x%p", __func__, ino, pi);
 
 	//#endif
 #if 0

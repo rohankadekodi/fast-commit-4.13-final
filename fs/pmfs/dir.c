@@ -247,16 +247,19 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	block = blocks - 1;
 
 	//for (block = 0; block < blocks; block++) {
-	blk_base =
-		pmfs_get_block(sb, pmfs_find_data_block(dir, block));
-	if (!blk_base) {
-		retval = -EIO;
-		goto out;
+
+	if (block >= 0) {
+		blk_base =
+			pmfs_get_block(sb, pmfs_find_data_block(dir, block));
+		if (!blk_base) {
+			retval = -EIO;
+			goto out;
+		}
+		retval = pmfs_add_dirent_to_buf(trans, dentry, inode,
+						NULL, blk_base, pidir);
+		if (retval != -ENOSPC)
+			goto out;
 	}
-	retval = pmfs_add_dirent_to_buf(trans, dentry, inode,
-					NULL, blk_base, pidir);
-	if (retval != -ENOSPC)
-		goto out;
 	//}
 
 	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false, ANY_CPU);
