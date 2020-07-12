@@ -722,8 +722,8 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 							zero, cpu);
 			if (errval < 0)
 				goto fail;
+			i++;
 		}
-		i++;
 	}
 
 	if (new_node || trans == NULL) {

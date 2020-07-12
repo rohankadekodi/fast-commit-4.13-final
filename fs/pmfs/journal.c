@@ -675,7 +675,7 @@ int pmfs_add_logentry(struct super_block *sb,
 		trans->num_used, le);
 
 	if ((trans->num_used + num_les) > trans->num_entries) {
-		pmfs_err(sb, "Log Entry full. tid %x ne %x tail %x size %x\n",
+		pmfs_err(sb, "Log Entry full. tid %lu ne %d tail %x size %x\n",
 			trans->transaction_id, trans->num_entries,
 			trans->num_used, size);
 		dump_transaction(sbi, trans);
