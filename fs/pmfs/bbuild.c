@@ -25,6 +25,11 @@
 #include "pmfs.h"
 #include "inode.h"
 
+#define PAGES_PER_2MB 512
+#define PAGES_PER_2MB_MASK (PAGES_PER_2MB - 1)
+#define IS_BLOCK_2MB_ALIGNED(block) \
+	(!(block & PAGES_PER_2MB_MASK))
+
 struct scan_bitmap {
 	unsigned long bitmap_4k_size;
 	unsigned long bitmap_2M_size;
@@ -77,9 +82,9 @@ static void pmfs_destroy_blocknode_tree(struct super_block *sb, int cpu)
 	struct free_list *free_list;
 
 	free_list = pmfs_get_free_list(sb, cpu);
-	pmfs_destroy_range_node_tree(sb, &free_list->block_free_tree);
+	pmfs_destroy_range_node_tree(sb, &free_list->unaligned_block_free_tree);
+	pmfs_destroy_range_node_tree(sb, &free_list->huge_aligned_block_free_tree);
 }
-
 
 static void pmfs_init_blockmap_from_inode(struct super_block *sb)
 {
@@ -117,7 +122,21 @@ static void pmfs_init_blockmap_from_inode(struct super_block *sb)
 
 		cpuid = get_block_cpuid(sbi, blknode->range_low);
 		free_list = pmfs_get_free_list(sb, cpuid);
-		ret = pmfs_insert_blocktree(&free_list->block_free_tree, blknode);
+
+		if (IS_BLOCK_2MB_ALIGNED(blknode->range_low) &&
+		    (blknode->range_high - blknode->range_low + 1 == PAGES_PER_2MB)) {
+			ret = pmfs_insert_blocktree(&free_list->huge_aligned_block_free_tree,
+						    blknode);
+			free_list->num_blocknode_huge_aligned++;
+			if (free_list->num_blocknode_huge_aligned == 1)
+				free_list->first_node_huge_aligned = blknode;
+		} else {
+			ret = pmfs_insert_blocktree(&free_list->unaligned_block_free_tree,
+						    blknode);
+			free_list->num_blocknode_unaligned++;
+			if (free_list->num_blocknode_unaligned == 1)
+				free_list->first_node_unaligned = blknode;
+		}
 		if (ret) {
 			pmfs_err(sb, "%s failed\n", __func__);
 			pmfs_free_blocknode(blknode);
@@ -125,10 +144,6 @@ static void pmfs_init_blockmap_from_inode(struct super_block *sb)
 			pmfs_destroy_blocknode_tree(sb, cpuid);
 			return;
 		}
-		free_list->num_blocknode++;
-		if (free_list->num_blocknode == 1)
-			free_list->first_node = blknode;
-		free_list->last_node = blknode;
 		free_list->num_free_blocks +=
 			blknode->range_high - blknode->range_low + 1;
 		curr_p += sizeof(struct pmfs_range_node_lowhigh);

@@ -6,9 +6,10 @@
 /* DRAM structure to hold a list of free PMEM blocks */
 struct free_list {
 	spinlock_t s_lock;
-	struct rb_root	block_free_tree;
-	struct pmfs_range_node *first_node; // lowest address free range
-	struct pmfs_range_node *last_node; // highest address free range
+	struct rb_root	unaligned_block_free_tree;
+	struct rb_root  huge_aligned_block_free_tree;
+	struct pmfs_range_node *first_node_unaligned; // lowest address free range
+	struct pmfs_range_node *first_node_huge_aligned; // lowest address free range
 
 	int		index; // Which CPU do I belong to?
 
@@ -21,7 +22,8 @@ struct free_list {
 	unsigned long	num_free_blocks;
 
 	/* How many nodes in the rb tree? */
-	unsigned long	num_blocknode;
+	unsigned long	num_blocknode_unaligned;
+	unsigned long   num_blocknode_huge_aligned;
 
 	/* Statistics */
 	/*

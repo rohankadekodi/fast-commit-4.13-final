@@ -171,7 +171,7 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
 
 	curr = inode_table->log_head;
 
-	pmfs_dbg_verbose("%s: cpuid = %d. ino = %llu. internal_ino = %llu. inode_table = 0x%p. superpage_count = %u. index = %u. curr = %llu log_head addr = 0x%p\n", __func__, cpuid, ino, internal_ino, inode_table, superpage_count, index, curr, &(inode_table->log_head));
+	//pmfs_dbg_verbose("%s: cpuid = %d. ino = %llu. internal_ino = %llu. inode_table = 0x%p. superpage_count = %u. index = %u. curr = %llu log_head addr = 0x%p\n", __func__, cpuid, ino, internal_ino, inode_table, superpage_count, index, curr, &(inode_table->log_head));
 
 	if (curr == 0) {
 		pmfs_dbg_verbose("%s: could not find inode for ino = %llu\n",
@@ -218,8 +218,8 @@ static inline struct pmfs_inode *pmfs_get_inode(struct super_block *sb, u64 ino)
 		}
 	}
 
-	pmfs_dbg_verbose("%s: Found the pmfs inode for ino = %llu\n",
-			 __func__, ino);
+	//pmfs_dbg_verbose("%s: Found the pmfs inode for ino = %llu\n",
+	//		 __func__, ino);
 
 	curr = (u64)pmfs_get_block(sb, curr);
 	return (struct pmfs_inode *)(curr + index * PMFS_INODE_SIZE);
