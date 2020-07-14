@@ -34,6 +34,25 @@ void pmfs_print_IO_stats(void)
 	printk("Fsync %ld pages\n", atomic64_read(&fsync_pages));
 }
 
+void pmfs_print_available_hugepages(struct super_block *sb)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	int i;
+	unsigned long num_hugepages = 0;
+	struct free_list *free_list;
+
+
+	printk("======== PMFS Available Free Hugepages =======\n");
+	for (i = 0; i < sbi->cpus; i++) {
+		free_list = pmfs_get_free_list(sb, i);
+		num_hugepages += free_list->num_blocknode_huge_aligned;
+		printk("free list idx %d, free hugepages %lu\n",
+		       free_list->index, free_list->num_blocknode_huge_aligned);
+	}
+	printk("Total free hugepages %lu\n",
+	       num_hugepages);
+}
+
 void pmfs_print_timing_stats(void)
 {
 	int i;

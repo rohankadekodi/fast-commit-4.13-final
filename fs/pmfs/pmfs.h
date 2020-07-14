@@ -594,7 +594,10 @@ int pmfs_search_dirblock(u8 *blk_base, struct inode *dir, struct qstr *child,
 /* pmfs_stats.c */
 #define	PMFS_PRINT_TIMING	0xBCD00010
 #define	PMFS_CLEAR_STATS	0xBCD00011
+#define PMFS_GET_AVAILABLE_HUGEPAGES 0xBCD00012
+
 void pmfs_print_timing_stats(void);
+void pmfs_print_available_hugepages(struct super_block *sb);
 void pmfs_clear_stats(void);
 
 #endif /* __PMFS_H */

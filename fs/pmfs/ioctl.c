@@ -140,6 +140,12 @@ setversion_out:
 		pmfs_print_timing_stats();
 		return 0;
 	}
+
+	case PMFS_GET_AVAILABLE_HUGEPAGES: {
+		pmfs_print_available_hugepages(sb);
+		return 0;
+	}
+
 	case PMFS_CLEAR_STATS: {
 		pmfs_clear_stats();
 		return 0;
