@@ -59,9 +59,12 @@ int pmfs_alloc_block_free_lists(struct super_block *sb);
 struct pmfs_range_node *pmfs_alloc_inode_node(struct super_block *sb);
 void pmfs_delete_free_lists(struct super_block *sb);
 struct pmfs_range_node *pmfs_alloc_dir_node(struct super_block *sb);
+struct vma_item *pmfs_alloc_vma_item(struct super_block *sb);
 void pmfs_free_range_node(struct pmfs_range_node *node);
 void pmfs_free_inode_node(struct pmfs_range_node *node);
-extern void pmfs_free_dir_node(struct pmfs_range_node *bnode);
+void pmfs_free_dir_node(struct pmfs_range_node *bnode);
+void pmfs_free_vma_item(struct super_block *sb,
+			struct vma_item *item);
 extern int pmfs_find_range_node(struct rb_root *tree, unsigned long key,
 				enum node_type type,
 				struct pmfs_range_node **ret_node);

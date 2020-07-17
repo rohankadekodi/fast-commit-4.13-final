@@ -29,7 +29,7 @@ int pmfs_block_symlink(struct inode *inode, const char *symname, int len)
 	if (err)
 		return err;
 
-	block = pmfs_find_data_block(inode, 0);
+	pmfs_find_data_blocks(inode, 0, &block, 1);
 	blockp = pmfs_get_block(sb, block);
 
 	pmfs_memunlock_block(sb, blockp);
@@ -63,7 +63,7 @@ static int pmfs_readlink(struct dentry *dentry, char __user *buffer, int buflen)
 	u64 block;
 	char *blockp;
 
-	block = pmfs_find_data_block(inode, 0);
+	pmfs_find_data_blocks(inode, 0, &block, 1);
 	blockp = pmfs_get_block(sb, block);
 	return pmfs_readlink_copy(buffer, buflen, blockp);
 }
@@ -72,10 +72,10 @@ static const char *pmfs_get_link(struct dentry *dentry, struct inode *inode,
 	struct delayed_call *done)
 {
 	struct super_block *sb = inode->i_sb;
-	off_t block;
+	u64 block;
 	char *blockp;
 
-	block = pmfs_find_data_block(inode, 0);
+	pmfs_find_data_blocks(inode, 0, &block, 1);
 	blockp = pmfs_get_block(sb, block);
 	return blockp;
 }

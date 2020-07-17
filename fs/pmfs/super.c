@@ -123,7 +123,9 @@ static int pmfs_get_block_info(struct super_block *sb,
 		return -EINVAL;
 	}
 
-	size = dax_direct_access(dax_dev, 0, LONG_MAX / PAGE_SIZE,
+	sbi->s_dax_dev = dax_dev;
+
+	size = dax_direct_access(sbi->s_dax_dev, 0, LONG_MAX / PAGE_SIZE,
 				&virt_addr, &__pfn_t) * PAGE_SIZE;
 	if (size <= 0) {
 		pmfs_err(sb, "direct_access failed\n");
@@ -597,8 +599,9 @@ static void pmfs_recover_truncate_list(struct super_block *sb)
 			inode->i_nlink, pi->i_size, li->i_truncatesize);
 		if (inode->i_nlink) {
 			/* set allocation hint */
-			pmfs_set_blocksize_hint(sb, pi, 
+			/*pmfs_set_blocksize_hint(sb, pi, 
 					le64_to_cpu(li->i_truncatesize));
+			*/
 			pmfs_setsize(inode, le64_to_cpu(li->i_truncatesize));
 			pmfs_update_isize(inode, pi);
 		} else {
@@ -822,11 +825,20 @@ int pmfs_statfs(struct dentry *d, struct kstatfs *buf)
 	return 0;
 }
 
+#define HUGEPAGE_SIZE (2097152)
+
 static int pmfs_show_options(struct seq_file *seq, struct dentry *root)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(root->d_sb);
 
 	seq_printf(seq, ",physaddr=0x%016llx", (u64)sbi->phys_addr);
+	seq_printf(seq, ",virtaddr=0x%016llx", (u64)sbi->virt_addr);
+	if ((u64) sbi->virt_addr % HUGEPAGE_SIZE) {
+		pmfs_dbg("start virtual address is not 2MB aligned\n");
+	} else {
+		pmfs_dbg("start virtual address is 2MB aligned\n");
+	}
+
 	if (sbi->initsize)
 		seq_printf(seq, ",init=%luk", sbi->initsize >> 10);
 	if (sbi->blocksize)
@@ -960,6 +972,12 @@ void pmfs_free_dir_node(struct pmfs_range_node *node)
 	pmfs_free_range_node(node);
 }
 
+void pmfs_free_vma_item(struct super_block *sb,
+	struct vma_item *item)
+{
+	pmfs_free_range_node((struct pmfs_range_node *)item);
+}
+
 void pmfs_free_blocknode(struct pmfs_range_node *node)
 {
 	pmfs_free_range_node(node);
@@ -1014,6 +1032,11 @@ struct pmfs_range_node *pmfs_alloc_inode_node(struct super_block *sb)
 struct pmfs_range_node *pmfs_alloc_dir_node(struct super_block *sb)
 {
 	return pmfs_alloc_range_node(sb);
+}
+
+struct vma_item *pmfs_alloc_vma_item(struct super_block *sb)
+{
+	return (struct vma_item *)pmfs_alloc_range_node(sb);
 }
 
 static void pmfs_i_callback(struct rcu_head *head)

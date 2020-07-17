@@ -46,6 +46,8 @@ void pmfs_init_header(struct super_block *sb,
 	sih->ino = 0;
 	sih->i_blocks = 0;
 	sih->rb_tree = RB_ROOT;
+	sih->vma_tree = RB_ROOT;
+	sih->num_vmas = 0;
 	sih->i_mode = i_mode;
 	sih->i_flags = 0;
 	sih->i_blk_type = PMFS_DEFAULT_BLOCK_TYPE;
@@ -110,7 +112,7 @@ static void pmfs_init_blockmap_from_inode(struct super_block *sb)
 		if (index == 0) {
 			/* Find and get new data block */
 			blocknr = i >> 8; /* 256 Entries in a block */
-			bp = __pmfs_find_data_block(sb, pi, blocknr);
+			__pmfs_find_data_blocks(sb, pi, blocknr, &bp, 1);
 			p = (struct pmfs_range_node_lowhigh *)pmfs_get_block(sb, bp);
 		}
 		PMFS_ASSERT(p);
@@ -264,8 +266,8 @@ void pmfs_save_blocknode_mappings(struct super_block *sb)
 		blocknr = k >> 8;
 		if (j == 0) {
 			/* Find, get and unlock new data block */
-			bp = __pmfs_find_data_block(sb, pi, blocknr);
-			p = pmfs_get_block(sb, bp); 
+			__pmfs_find_data_blocks(sb, pi, blocknr, &bp, 1);
+			p = pmfs_get_block(sb, bp);
 			pmfs_memunlock_block(sb, p);
 		}
 		p[j].block_low = cpu_to_le64(i->block_low);
@@ -278,15 +280,15 @@ void pmfs_save_blocknode_mappings(struct super_block *sb)
 			pmfs_memlock_block(sb, p);
 			pmfs_flush_buffer(p, 4096, false);
 		}
-		
+
 		k++;
 	}
-	
-	/* Lock the block */	
+
+	/* Lock the block */
 	if (j) {
 		pmfs_flush_buffer(p, j << 4, false);
-		pmfs_memlock_block(sb, p);	
-	}	
+		pmfs_memlock_block(sb, p);
+	}
 
 	/* 
 	 * save the total allocated blocknode mappings 

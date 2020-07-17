@@ -222,6 +222,7 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	struct pmfs_direntry *de;
 	char *blk_base;
 	struct pmfs_inode *pidir;
+	u64 bp = 0;
 
 	if (!dentry->d_name.len)
 		return -EINVAL;
@@ -235,8 +236,9 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	//for (block = 0; block < blocks; block++) {
 
 	if (block >= 0) {
+		pmfs_find_data_blocks(dir, block, &bp, 1);
 		blk_base =
-			pmfs_get_block(sb, pmfs_find_data_block(dir, block));
+			pmfs_get_block(sb, bp);
 		if (!blk_base) {
 			retval = -EIO;
 			goto out;
@@ -255,7 +257,8 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	dir->i_size += dir->i_sb->s_blocksize;
 	pmfs_update_isize(dir, pidir);
 
-	blk_base = pmfs_get_block(sb, pmfs_find_data_block(dir, blocks));
+	pmfs_find_data_blocks(dir, blocks, &bp, 1);
+	blk_base = pmfs_get_block(sb, bp);
 	if (!blk_base) {
 		retval = -ENOSPC;
 		goto out;
@@ -368,9 +371,10 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 	offset = ctx->pos & (sb->s_blocksize - 1);
 	while (ctx->pos < inode->i_size) {
 		unsigned long blk = ctx->pos >> sb->s_blocksize_bits;
-
+		u64 bp = 0;
+		pmfs_find_data_blocks(inode, blk, &bp, 1);
 		blk_base =
-			pmfs_get_block(sb, pmfs_find_data_block(inode, blk));
+			pmfs_get_block(sb, bp);
 		if (!blk_base) {
 			pmfs_dbg("directory %lu contains a hole at offset %lld\n",
 				inode->i_ino, ctx->pos);
