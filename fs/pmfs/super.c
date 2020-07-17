@@ -825,19 +825,12 @@ int pmfs_statfs(struct dentry *d, struct kstatfs *buf)
 	return 0;
 }
 
-#define HUGEPAGE_SIZE (2097152)
-
 static int pmfs_show_options(struct seq_file *seq, struct dentry *root)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(root->d_sb);
 
 	seq_printf(seq, ",physaddr=0x%016llx", (u64)sbi->phys_addr);
 	seq_printf(seq, ",virtaddr=0x%016llx", (u64)sbi->virt_addr);
-	if ((u64) sbi->virt_addr % HUGEPAGE_SIZE) {
-		pmfs_dbg("start virtual address is not 2MB aligned\n");
-	} else {
-		pmfs_dbg("start virtual address is 2MB aligned\n");
-	}
 
 	if (sbi->initsize)
 		seq_printf(seq, ",init=%luk", sbi->initsize >> 10);

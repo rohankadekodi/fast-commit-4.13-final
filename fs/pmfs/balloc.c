@@ -373,8 +373,8 @@ bool pmfs_alloc_superpage(struct super_block *sb,
 		found = 1;
 	}
 
-	pmfs_dbg("%s: blocknr = %lu. num_blocks = %lu\n",
-		 __func__, *new_blocknr, num_blocks);
+	pmfs_dbg_verbose("%s: blocknr = %lu. num_blocks = %lu\n",
+			 __func__, *new_blocknr, num_blocks);
 
 	return found;
 }

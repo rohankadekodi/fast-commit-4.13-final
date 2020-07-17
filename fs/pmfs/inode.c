@@ -119,9 +119,9 @@ unsigned long pmfs_find_data_blocks(struct inode *inode,
 		return 0;
 
 	num_blocks_found = __pmfs_find_data_blocks(sb, pi, blocknr, bp, max_blocks);
-	pmfs_dbg1("find_data_block %lx, %x %llx blk_p %p blk_shift %x"
-		" blk_offset %lx\n", file_blocknr, pi->height, bp,
-		pmfs_get_block(sb, bp), blk_shift, blk_offset);
+	pmfs_dbg_verbose("find_data_block %lx, %x %llx blk_p %p blk_shift %x"
+			 " blk_offset %lx\n", file_blocknr, pi->height, bp,
+			 pmfs_get_block(sb, bp), blk_shift, blk_offset);
 
 	if (bp == 0)
 		return 0;
@@ -1679,10 +1679,6 @@ void pmfs_dirty_inode(struct inode *inode, int flags)
 	pi->i_atime = cpu_to_le32(inode->i_atime.tv_sec);
 	pmfs_memlock_inode(sb, pi);
 	pmfs_flush_buffer(&pi->i_atime, sizeof(pi->i_atime), true);
-
-	/* FIXME: Is this check needed? */
-	if (pmfs_is_inode_dirty(inode, pi))
-		printk_ratelimited(KERN_ERR "pmfs: inode was dirty!\n");
 }
 
 /*

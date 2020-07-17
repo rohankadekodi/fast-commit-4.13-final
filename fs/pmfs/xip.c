@@ -467,6 +467,7 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 		if (trans) {
 			allocated = pmfs_alloc_blocks(trans, inode, iblock,
 						      max_blocks, true, ANY_CPU);
+
 			if (allocated < 0) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
 					__func__, __LINE__);
@@ -500,6 +501,7 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 		}
 
 		blocks_found = pmfs_find_data_blocks(inode, iblock, &block, max_blocks);
+
 		if (!block) {
 			pmfs_dbg("[%s:%d] But alloc didn't fail!\n",
 				  __func__, __LINE__);
@@ -507,7 +509,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 			goto err;
 		}
 	}
-	pmfs_dbg_mmapvv("iblock 0x%lx allocated_block 0x%llx\n", iblock,
+
+	pmfs_dbg_verbose("iblock 0x%lx allocated_block 0x%llx\n", iblock,
 			 block);
 
 	*bno = block;
@@ -579,9 +582,9 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 	u64 bno;
 	int ret;
 
-	pmfs_dbg("%s: calling find_and_alloc_blocks. first_block = %lu "
-		 "max_blocks = %lu. length = %lld\n", __func__,
-		 first_block, max_blocks, length);
+	pmfs_dbg_verbose("%s: calling find_and_alloc_blocks. first_block = %lu "
+			 "max_blocks = %lu. length = %lld\n", __func__,
+			 first_block, max_blocks, length);
 
 	ret = pmfs_find_and_alloc_blocks(inode,
 				   first_block,
@@ -606,7 +609,7 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 		iomap->length = 1 << blkbits;
 	} else {
 		iomap->type = IOMAP_MAPPED;
-		iomap->blkno = (sector_t)bno << (blkbits - 9);
+		iomap->blkno = (sector_t)(bno >> 9);//<< (blkbits - 9));
 		iomap->length = (u64)ret << blkbits;
 		iomap->flags |= IOMAP_F_MERGED;
 	}
@@ -614,7 +617,10 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 	if (new)
 		iomap->flags |= IOMAP_F_NEW;
 
-	pmfs_dbg("%s: returning 0\n", __func__);
+	pmfs_dbg_verbose("%s: iomap->flags %d, iomap->offset %lld, iomap->blkno %lu, "
+			 "iomap->length %llu\n", __func__, iomap->flags, iomap->offset,
+			 iomap->blkno, iomap->length);
+
 	return 0;
 }
 
@@ -622,12 +628,10 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 int pmfs_iomap_end(struct inode *inode, loff_t offset, loff_t length,
 	ssize_t written, unsigned int flags, struct iomap *iomap)
 {
-	pmfs_dbg("%s: start\n", __func__);
 	if (iomap->type == IOMAP_MAPPED &&
 			written < length &&
 			(flags & IOMAP_WRITE))
 		truncate_pagecache(inode, inode->i_size);
-	pmfs_dbg("%s: end\n", __func__);
 	return 0;
 }
 
@@ -660,7 +664,6 @@ static int pmfs_dax_pfn_mkwrite(struct vm_fault *vmf)
 	int ret = 0;
 	timing_t fault_time;
 
-	pmfs_dbg("%s: start\n", __func__);
 	inode_lock(inode);
 	size = (i_size_read(inode) + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	if (vmf->pgoff >= size)
@@ -669,7 +672,6 @@ static int pmfs_dax_pfn_mkwrite(struct vm_fault *vmf)
 		ret = dax_pfn_mkwrite(vmf);
 	inode_unlock(inode);
 
-	pmfs_dbg("%s: end\n", __func__);
 	return ret;
 }
 
@@ -708,15 +710,14 @@ static int pmfs_xip_huge_file_fault(struct vm_fault *vmf,
 	struct address_space *mapping = vmf->vma->vm_file->f_mapping;
 	struct inode *inode = mapping->host;
 
-	pmfs_dbg("%s: inode %lu, pgoff %lu, pe_size %d\n",
-		 __func__, inode->i_ino, vmf->pgoff, pe_size);
+	pmfs_dbg_verbose("%s: inode %lu, pgoff %lu, pe_size %d\n",
+			 __func__, inode->i_ino, vmf->pgoff, pe_size);
 
 	if (vmf->flags & FAULT_FLAG_WRITE)
 		file_update_time(vmf->vma->vm_file);
 
 	ret = dax_iomap_fault(vmf, pe_size, &pmfs_iomap_ops_lock);
 
-	pmfs_dbg("%s: return value from dax_iomap_fault = %d\n", __func__, ret);
 	return ret;
 
 }
@@ -726,17 +727,16 @@ static int pmfs_xip_file_fault(struct vm_fault *vmf)
 	int ret = 0;
 	timing_t fault_time;
 
+	/*
 	pmfs_dbg("%s: got a 4K fault\n", __func__);
 	return pmfs_xip_huge_file_fault(vmf, PE_SIZE_PTE);
-
-	/*
+	*/
 	PMFS_START_TIMING(mmap_fault_t, fault_time);
 	rcu_read_lock();
 	ret = __pmfs_xip_file_fault(vmf->vma, vmf);
 	rcu_read_unlock();
 	PMFS_END_TIMING(mmap_fault_t, fault_time);
 	return ret;
-	*/
 }
 
 static inline int pmfs_rbtree_compare_vma(struct vma_item *curr,
