@@ -23,6 +23,8 @@
 #include <linux/uio.h>
 #include <linux/version.h>
 #include <linux/pfn_t.h>
+#include <linux/iomap.h>
+#include <linux/dax.h>
 
 #include "pmfs_def.h"
 #include "journal.h"
@@ -254,6 +256,7 @@ struct pmfs_sb_info {
 	 * the pointer to the super block)
 	 */
 	struct block_device *s_bdev;
+	struct dax_device *s_dax_dev;
 	phys_addr_t	phys_addr;
 	void		*virt_addr;
 	struct list_head block_inuse_head;
@@ -337,6 +340,12 @@ struct pmfs_range_node {
 			void *direntry;
 		};
 	};
+};
+
+struct vma_item {
+	struct rb_node node;
+	struct vm_area_struct *vma;
+	unsigned long mmap_entry;
 };
 
 static inline struct pmfs_sb_info *PMFS_SB(struct super_block *sb)
@@ -546,6 +555,13 @@ void pmfs_delete_dir_tree(struct super_block *sb,
 struct pmfs_direntry *pmfs_find_dentry(struct super_block *sb,
 				       struct pmfs_inode *pi, struct inode *inode,
 				       const char *name, unsigned long name_len);
+
+/* xip.c */
+int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
+		     unsigned int flags, struct iomap *iomap, bool taking_lock);
+int pmfs_iomap_end(struct inode *inode, loff_t offset, loff_t length,
+		   ssize_t written, unsigned int flags, struct iomap *iomap);
+
 
 /* file.c */
 extern const struct inode_operations pmfs_file_inode_operations;

@@ -161,6 +161,7 @@ static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
 	struct super_block *sb = dir->i_sb;
 	unsigned long block, start;
 	struct pmfs_inode_info *si = PMFS_I(dir);
+	u64 bp = 0;
 
 	pi = pmfs_get_inode(sb, dir->i_ino);
 
@@ -183,8 +184,9 @@ static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
 	block = start;
 restart:
 	do {
+		pmfs_find_data_blocks(dir, block, &bp, 1);
 		blk_base =
-			pmfs_get_block(sb, pmfs_find_data_block(dir, block));
+			pmfs_get_block(sb, bp);
 		if (!blk_base)
 			goto done;
 		i = pmfs_search_dirblock(blk_base, dir, entry,
@@ -487,6 +489,7 @@ static int pmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	pmfs_transaction_t *trans;
 	int err = -EMLINK;
 	char *blk_base;
+	u64 bp = 0;
 
 	if (dir->i_nlink >= PMFS_LINK_MAX)
 		goto out;
@@ -519,7 +522,8 @@ static int pmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 		goto out_clear_inode;
 	inode->i_size = sb->s_blocksize;
 
-	blk_base = pmfs_get_block(sb, pmfs_find_data_block(inode, 0));
+	pmfs_find_data_blocks(inode, 0, &bp, 1);
+	blk_base = pmfs_get_block(sb, bp);
 	de = (struct pmfs_direntry *)blk_base;
 	pmfs_memunlock_range(sb, blk_base, sb->s_blocksize);
 	de->ino = cpu_to_le64(inode->i_ino);
@@ -608,6 +612,7 @@ static int pmfs_empty_dir(struct inode *inode)
 	struct super_block *sb;
 	char *blk_base;
 	int err = 0;
+	u64 bp = 0;
 
 	sb = inode->i_sb;
 	if (inode->i_size < PMFS_DIR_REC_LEN(1) + PMFS_DIR_REC_LEN(2)) {
@@ -616,7 +621,8 @@ static int pmfs_empty_dir(struct inode *inode)
 		return 1;
 	}
 
-	blk_base = pmfs_get_block(sb, pmfs_find_data_block(inode, 0));
+	pmfs_find_data_blocks(inode, 0, &bp, 1);
+	blk_base = pmfs_get_block(sb, bp);
 	if (!blk_base) {
 		pmfs_dbg("bad directory (dir #%lu)-no data block",
 			  inode->i_ino);
@@ -638,8 +644,8 @@ static int pmfs_empty_dir(struct inode *inode)
 		if (!blk_base || (void *)de >= (void *)(blk_base +
 					sb->s_blocksize)) {
 			err = 0;
-			blk_base = pmfs_get_block(sb, pmfs_find_data_block(
-				    inode, offset >> sb->s_blocksize_bits));
+			pmfs_find_data_blocks(inode, offset >> sb->s_blocksize_bits, &bp, 1);
+			blk_base = pmfs_get_block(sb, bp);
 			if (!blk_base) {
 				pmfs_dbg("Error: reading dir #%lu offset %lu\n",
 					  inode->i_ino, offset);

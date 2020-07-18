@@ -76,6 +76,9 @@ static int pmfs_new_data_blocks(struct super_block *sb, struct pmfs_inode *pi,
 	int allocated;
 	unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
 
+	pmfs_dbg_verbose("%s: calling pmfs_new_blocks with num = %u "
+		 "data_bits = %u\n", __func__, num, data_bits);
+
 	allocated = pmfs_new_blocks(sb, blocknr, num,
 				    pi->i_blk_type, zero,
 				    cpu);
@@ -94,7 +97,10 @@ static int pmfs_new_data_blocks(struct super_block *sb, struct pmfs_inode *pi,
  * find the offset to the block represented by the given inode's file
  * relative block number.
  */
-u64 pmfs_find_data_block(struct inode *inode, unsigned long file_blocknr)
+unsigned long pmfs_find_data_blocks(struct inode *inode,
+				    unsigned long file_blocknr,
+				    u64 *bp,
+				    unsigned long max_blocks)
 {
 	struct super_block *sb = inode->i_sb;
 	struct pmfs_inode *pi = pmfs_get_inode(sb, inode->i_ino);
@@ -102,24 +108,29 @@ u64 pmfs_find_data_block(struct inode *inode, unsigned long file_blocknr)
 	unsigned long blk_offset, blocknr = file_blocknr;
 	unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
 	unsigned int meta_bits = META_BLK_SHIFT;
-	u64 bp;
+	unsigned long num_blocks_found = 0;
 
 	/* convert the 4K blocks into the actual blocks the inode is using */
 	blk_shift = data_bits - sb->s_blocksize_bits;
 	blk_offset = file_blocknr & ((1 << blk_shift) - 1);
 	blocknr = file_blocknr >> blk_shift;
 
-	if (blocknr >= (1UL << (pi->height * meta_bits)))
+	if (blocknr >= (1UL << (pi->height * meta_bits))) {
+		*bp = 0;
+		return 0;
+	}
+
+	num_blocks_found = __pmfs_find_data_blocks(sb, pi, blocknr,
+						   bp, max_blocks);
+	pmfs_dbg_verbose("find_data_block %lx, %x %llx blk_p %p blk_shift %x"
+			 " blk_offset %lx\n", file_blocknr, pi->height, bp,
+			 pmfs_get_block(sb, bp), blk_shift, blk_offset);
+
+	if (*bp == 0)
 		return 0;
 
-	bp = __pmfs_find_data_block(sb, pi, blocknr);
-	pmfs_dbg1("find_data_block %lx, %x %llx blk_p %p blk_shift %x"
-		" blk_offset %lx\n", file_blocknr, pi->height, bp,
-		pmfs_get_block(sb, bp), blk_shift, blk_offset);
-
-	if (bp == 0)
-		return 0;
-	return bp + (blk_offset << sb->s_blocksize_bits);
+	*bp = *bp + (blk_offset << sb->s_blocksize_bits);
+	return num_blocks_found;
 }
 
 /* recursive_find_region: recursively search the btree to find hole or data
@@ -656,6 +667,7 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				if (num_blocks > 512) {
 					num_blocks = 512;
 				}
+
 				allocated = pmfs_new_data_blocks(sb, pi,
 								 &blocknr,
 								 num_blocks,
@@ -1670,10 +1682,6 @@ void pmfs_dirty_inode(struct inode *inode, int flags)
 	pi->i_atime = cpu_to_le32(inode->i_atime.tv_sec);
 	pmfs_memlock_inode(sb, pi);
 	pmfs_flush_buffer(&pi->i_atime, sizeof(pi->i_atime), true);
-
-	/* FIXME: Is this check needed? */
-	if (pmfs_is_inode_dirty(inode, pi))
-		printk_ratelimited(KERN_ERR "pmfs: inode was dirty!\n");
 }
 
 /*
@@ -1696,7 +1704,7 @@ static void pmfs_block_truncate_page(struct inode *inode, loff_t newsize)
 	length = sb->s_blocksize - offset;
 	blocknr = newsize >> sb->s_blocksize_bits;
 
-	blockoff = pmfs_find_data_block(inode, blocknr);
+	pmfs_find_data_blocks(inode, blocknr, &blockoff, 1);
 
 	/* Hole ? */
 	if (!blockoff)
@@ -1910,7 +1918,7 @@ int pmfs_notify_change(struct dentry *dentry, struct iattr *attr)
 
 		pmfs_truncate_add(inode, attr->ia_size);
 		/* set allocation hint */
-		pmfs_set_blocksize_hint(sb, pi, attr->ia_size);
+		//pmfs_set_blocksize_hint(sb, pi, attr->ia_size);
 
 		/* now we can freely truncate the inode */
 		pmfs_setsize(inode, attr->ia_size);

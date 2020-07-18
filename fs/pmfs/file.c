@@ -109,7 +109,7 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 	pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY, LE_DATA);
 
 	/* Set the block size hint */
-	pmfs_set_blocksize_hint(sb, pi, new_size);
+	//pmfs_set_blocksize_hint(sb, pi, new_size);
 
 	blocksize_mask = sb->s_blocksize - 1;
 	blocknr = offset >> sb->s_blocksize_bits;
@@ -215,7 +215,7 @@ int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 	start = start & CACHELINE_MASK;
 	end = CACHELINE_ALIGN(end);
 	do {
-		sector_t block = 0;
+		u64 block = 0;
 		void *xip_mem;
 		pgoff_t pgoff;
 		loff_t offset;
@@ -228,8 +228,7 @@ int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 		if (nr_flush_bytes > (end - start))
 			nr_flush_bytes = end - start;
 
-		block = pmfs_find_data_block(inode, (sector_t)pgoff);
-
+		pmfs_find_data_blocks(inode, (sector_t)pgoff, &block, 1);
 		if (block) {
 			xip_mem = pmfs_get_block(inode->i_sb, block);
 			/* flush the range */
@@ -328,6 +327,7 @@ const struct file_operations pmfs_xip_file_operations = {
 //	.read_iter		= generic_file_read_iter,
 //	.write_iter		= generic_file_write_iter,
 	.mmap			= pmfs_xip_file_mmap,
+ 	.get_unmapped_area      = thp_get_unmapped_area,
 	.open			= generic_file_open,
 	.fsync			= pmfs_fsync,
 	.flush			= pmfs_flush,
