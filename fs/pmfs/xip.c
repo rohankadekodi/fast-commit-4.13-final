@@ -199,8 +199,9 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 			bytes = count;
 
 		status = pmfs_get_xip_mem(mapping, index, 1, 1, &xmem, &xpfn);
-		if (status < 0)
+		if (status < 0) {
 			break;
+		}
 
 		PMFS_START_TIMING(memcpy_w_t, memcpy_time);
 		pmfs_xip_mem_protect(sb, xmem + offset, bytes, 1);
@@ -346,6 +347,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	unsigned long start_blk, end_blk, num_blocks, max_logentries;
 	bool same_block;
 	timing_t xip_write_time, xip_write_fast_time;
+	int num_blocks_found = 0;
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -372,7 +374,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	start_blk = pos >> sb->s_blocksize_bits;
 	end_blk = start_blk + num_blocks - 1;
 
-	pmfs_find_data_blocks(inode, start_blk, &block, 1);
+	num_blocks_found = pmfs_find_data_blocks(inode, start_blk, &block, 1);
 
 	/* Referring to the inode's block size, not 4K */
 	same_block = (((count + offset - 1) >>
@@ -428,8 +430,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	written = __pmfs_xip_file_write(mapping, buf, count, pos, ppos);
 	if (written < 0 || written != count)
 		pmfs_dbg_verbose("write incomplete/failed: written %ld len %ld"
-			" pos %llx start_blk %lx num_blocks %lx\n",
-			written, count, pos, start_blk, num_blocks);
+				 " pos %llx start_blk %lx num_blocks %lx\n",
+				 written, count, pos, start_blk, num_blocks);
 
 	pmfs_commit_transaction(sb, trans);
 	ret = written;
@@ -437,6 +439,7 @@ out:
 	inode_unlock(inode);
 	sb_end_write(inode->i_sb);
 	PMFS_END_TIMING(xip_write_t, xip_write_time);
+
 	return ret;
 }
 

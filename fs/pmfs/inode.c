@@ -115,15 +115,18 @@ unsigned long pmfs_find_data_blocks(struct inode *inode,
 	blk_offset = file_blocknr & ((1 << blk_shift) - 1);
 	blocknr = file_blocknr >> blk_shift;
 
-	if (blocknr >= (1UL << (pi->height * meta_bits)))
+	if (blocknr >= (1UL << (pi->height * meta_bits))) {
+		*bp = 0;
 		return 0;
+	}
 
-	num_blocks_found = __pmfs_find_data_blocks(sb, pi, blocknr, bp, max_blocks);
+	num_blocks_found = __pmfs_find_data_blocks(sb, pi, blocknr,
+						   bp, max_blocks);
 	pmfs_dbg_verbose("find_data_block %lx, %x %llx blk_p %p blk_shift %x"
 			 " blk_offset %lx\n", file_blocknr, pi->height, bp,
 			 pmfs_get_block(sb, bp), blk_shift, blk_offset);
 
-	if (bp == 0)
+	if (*bp == 0)
 		return 0;
 
 	*bp = *bp + (blk_offset << sb->s_blocksize_bits);
