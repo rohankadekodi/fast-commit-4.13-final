@@ -76,8 +76,10 @@ int pmfs_check_dir_entry(const char *function, struct inode *dir,
 		error_msg = "de_len % 4 != 0";
 	else if (unlikely(rlen < PMFS_DIR_REC_LEN(de->name_len)))
 		error_msg = "de_len is too small for name_len";
-	else if (unlikely((((u8 *)de - base) + rlen > dir->i_sb->s_blocksize)))
+	else if (unlikely((((u8 *)de - base) + rlen > dir->i_sb->s_blocksize))) {
 		error_msg = "directory entry across blocks";
+		dump_stack();
+	}
 
 	if (unlikely(error_msg != NULL)) {
 		pmfs_dbg("bad entry in directory #%lu: %s - "
@@ -88,50 +90,6 @@ int pmfs_check_dir_entry(const char *function, struct inode *dir,
 	}
 
 	return error_msg == NULL ? 1 : 0;
-}
-
-/*
- * Returns 0 if not found, -1 on failure, and 1 on success
- */
-int pmfs_search_dirblock(u8 *blk_base, struct inode *dir, struct qstr *child,
-			  unsigned long	offset,
-			  struct pmfs_direntry **res_dir,
-			  struct pmfs_direntry **prev_dir)
-{
-	struct pmfs_direntry *de;
-	struct pmfs_direntry *pde = NULL;
-	char *dlimit;
-	int de_len;
-	const char *name = child->name;
-	int namelen = child->len;
-
-	de = (struct pmfs_direntry *)blk_base;
-	dlimit = blk_base + dir->i_sb->s_blocksize;
-	while ((char *)de < dlimit) {
-
-		/* this code is executed quadratically often */
-		/* do minimal checking `by hand' */
-
-		if ((char *)de + namelen <= dlimit &&
-		    pmfs_match(namelen, name, de)) {
-			/* found a match - just to be sure, do a full check */
-			if (!pmfs_check_dir_entry("pmfs_inode_by_name",
-						   dir, de, blk_base, offset))
-				return -1;
-			*res_dir = de;
-			if (prev_dir)
-				*prev_dir = pde;
-			return 1;
-		}
-		/* prevent looping on a bad block */
-		de_len = le16_to_cpu(de->de_len);
-		if (de_len <= 0)
-			return -1;
-		offset += de_len;
-		pde = de;
-		de = (struct pmfs_direntry *)((char *)de + de_len);
-	}
-	return 0;
 }
 
 static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
@@ -148,73 +106,6 @@ static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
 	*res_entry = direntry;
 	return direntry->ino;
 }
-
-#if 0
-static ino_t pmfs_inode_by_name(struct inode *dir, struct qstr *entry,
-				 struct pmfs_direntry **res_entry)
-{
-	struct pmfs_inode *pi;
-	ino_t i_no = 0;
-	int namelen, nblocks, i;
-	u8 *blk_base;
-	const u8 *name = entry->name;
-	struct super_block *sb = dir->i_sb;
-	unsigned long block, start;
-	struct pmfs_inode_info *si = PMFS_I(dir);
-
-	pi = pmfs_get_inode(sb, dir->i_ino);
-
-	namelen = entry->len;
-	if (namelen > PMFS_NAME_LEN)
-		return 0;
-	if ((namelen <= 2) && (name[0] == '.') &&
-	    (name[1] == '.' || name[1] == 0)) {
-		/*
-		 * "." or ".." will only be in the first block
-		 */
-		block = start = 0;
-		nblocks = 1;
-		goto restart;
-	}
-	nblocks = dir->i_size >> dir->i_sb->s_blocksize_bits;
-	start = si->i_dir_start_lookup;
-	if (start >= nblocks)
-		start = 0;
-	block = start;
-restart:
-	do {
-		blk_base =
-			pmfs_get_block(sb, pmfs_find_data_block(dir, block));
-		if (!blk_base)
-			goto done;
-		i = pmfs_search_dirblock(blk_base, dir, entry,
-					  block << sb->s_blocksize_bits,
-					  res_entry, NULL);
-		if (i == 1) {
-			si->i_dir_start_lookup = block;
-			i_no = le64_to_cpu((*res_entry)->ino);
-			goto done;
-		} else {
-			if (i < 0)
-				goto done;
-		}
-		if (++block >= nblocks)
-			block = 0;
-	} while (block != start);
-	/*
-	 * If the directory has grown while we were searching, then
-	 * search the last part of the directory before giving up.
-	 */
-	block = nblocks;
-	nblocks = dir->i_size >> sb->s_blocksize_bits;
-	if (block < nblocks) {
-		start = 0;
-		goto restart;
-	}
-done:
-	return i_no;
-}
-#endif
 
 static struct dentry *pmfs_lookup(struct inode *dir, struct dentry *dentry,
 				   unsigned int flags)
@@ -595,74 +486,6 @@ static int pmfs_empty_dir(struct inode *inode)
 
 	return 1;
 }
-
-
-#if 0
-/*
- * routine to check that the specified directory is empty (for rmdir)
- */
-static int pmfs_empty_dir(struct inode *inode)
-{
-	unsigned long offset;
-	struct pmfs_direntry *de, *de1;
-	struct super_block *sb;
-	char *blk_base;
-	int err = 0;
-
-	sb = inode->i_sb;
-	if (inode->i_size < PMFS_DIR_REC_LEN(1) + PMFS_DIR_REC_LEN(2)) {
-		pmfs_dbg("bad directory (dir #%lu)-no data block",
-			  inode->i_ino);
-		return 1;
-	}
-
-	blk_base = pmfs_get_block(sb, pmfs_find_data_block(inode, 0));
-	if (!blk_base) {
-		pmfs_dbg("bad directory (dir #%lu)-no data block",
-			  inode->i_ino);
-		return 1;
-	}
-
-	de = (struct pmfs_direntry *)blk_base;
-	de1 = pmfs_next_entry(de);
-
-	if (le64_to_cpu(de->ino) != inode->i_ino || !le64_to_cpu(de1->ino) ||
-	    strcmp(".", de->name) || strcmp("..", de1->name)) {
-		pmfs_dbg("bad directory (dir #%lu) - no `.' or `..'",
-			  inode->i_ino);
-		return 1;
-	}
-	offset = le16_to_cpu(de->de_len) + le16_to_cpu(de1->de_len);
-	de = pmfs_next_entry(de1);
-	while (offset < inode->i_size) {
-		if (!blk_base || (void *)de >= (void *)(blk_base +
-					sb->s_blocksize)) {
-			err = 0;
-			blk_base = pmfs_get_block(sb, pmfs_find_data_block(
-				    inode, offset >> sb->s_blocksize_bits));
-			if (!blk_base) {
-				pmfs_dbg("Error: reading dir #%lu offset %lu\n",
-					  inode->i_ino, offset);
-				offset += sb->s_blocksize;
-				continue;
-			}
-			de = (struct pmfs_direntry *)blk_base;
-		}
-		if (!pmfs_check_dir_entry("empty_dir", inode, de, blk_base,
-					offset)) {
-			de = (struct pmfs_direntry *)(blk_base +
-				sb->s_blocksize);
-			offset = (offset | (sb->s_blocksize - 1)) + 1;
-			continue;
-		}
-		if (le64_to_cpu(de->ino))
-			return 0;
-		offset += le16_to_cpu(de->de_len);
-		de = pmfs_next_entry(de);
-	}
-	return 1;
-}
-#endif
 
 static int pmfs_rmdir(struct inode *dir, struct dentry *dentry)
 {

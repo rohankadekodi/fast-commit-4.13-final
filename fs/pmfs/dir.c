@@ -164,22 +164,40 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 
 		de = (struct pmfs_direntry *)(sih->last_dentry);
 		rlen = le16_to_cpu(de->de_len);
-		de = (struct pmfs_direntry *)((char *) de + rlen);
+		if (de->ino) {
+			nlen = PMFS_DIR_REC_LEN(de->name_len);
+			if (rlen - nlen >= reclen) {
+				goto found_free_slot;
+			}
+			else {
+				return -ENOSPC;
+			}
+		}
+
 		if ((char *)de > top)
 			return -ENOSPC;
 
 		pmfs_memunlock_block(dir->i_sb, blk_base);
-		de->de_len = reclen;
+		de->de_len = blk_base + dir->i_sb->s_blocksize - (u8*)de;
 		pmfs_memlock_block(dir->i_sb, blk_base);
 	}
 
-	pmfs_add_logentry(dir->i_sb, trans, &de->ino,
-			  sizeof(de->ino), LE_DATA);
-
-	sih->last_dentry = (struct pmfs_direntry *) (de);
-
-	pmfs_add_logentry(dir->i_sb, trans, &de->ino,
-			  sizeof(de->ino), LE_DATA);
+ found_free_slot:
+	if (de->ino) {
+		struct pmfs_direntry *de1;
+		pmfs_add_logentry(dir->i_sb, trans, &de->de_len,
+				  sizeof(de->de_len), LE_DATA);
+		nlen = PMFS_DIR_REC_LEN(de->name_len);
+		de1 = (struct pmfs_direntry *)((char *) de + nlen);
+		pmfs_memunlock_block(dir->i_sb, blk_base);
+		de1->de_len = blk_base + dir->i_sb->s_blocksize - (u8*)de1;
+		de->de_len = cpu_to_le16(nlen);
+		pmfs_memlock_block(dir->i_sb, blk_base);
+		de = de1;
+	} else {
+		pmfs_add_logentry(dir->i_sb, trans, &de->ino,
+				  sizeof(de->ino), LE_DATA);
+	}
 
 	pmfs_memunlock_block(dir->i_sb, blk_base);
 	if (inode) {
@@ -187,6 +205,8 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 	} else {
 		de->ino = 0;
 	}
+
+	sih->last_dentry = (struct pmfs_direntry *) (de);
 
 	de->name_len = namelen;
 	memcpy(de->name, name, namelen);
@@ -264,7 +284,8 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	de = (struct pmfs_direntry *)blk_base;
 	pmfs_memunlock_block(sb, blk_base);
 	de->ino = 0;
-	de->de_len = PMFS_DIR_REC_LEN(dentry->d_name.len);
+	//de->de_len = PMFS_DIR_REC_LEN(dentry->d_name.len);
+	de->de_len = dir->i_sb->s_blocksize;
 	pmfs_memlock_block(sb, blk_base);
 	/* Since this is a new block, no need to log changes to this block */
 	retval = pmfs_add_dirent_to_buf(NULL, dentry, inode, de, blk_base,
@@ -362,6 +383,8 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 	struct pmfs_direntry *de;
 	ino_t ino;
 	timing_t readdir_time;
+	struct pmfs_inode_info *si = PMFS_I(inode);
+	struct pmfs_inode_info_header *sih = &(si->header);
 
 	PMFS_START_TIMING(readdir_t, readdir_time);
 
@@ -377,34 +400,11 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 			ctx->pos += sb->s_blocksize - offset;
 			continue;
 		}
-#if 0
-		if (file->f_version != inode->i_version) {
-			for (i = 0; i < sb->s_blocksize && i < offset; ) {
-				de = (struct pmfs_direntry *)(blk_base + i);
-				/* It's too expensive to do a full
-				 * dirent test each time round this
-				 * loop, but we do have to test at
-				 * least that it is non-zero.  A
-				 * failure will be detected in the
-				 * dirent test below. */
-				if (le16_to_cpu(de->de_len) <
-				    PMFS_DIR_REC_LEN(1))
-					break;
-				i += le16_to_cpu(de->de_len);
-			}
-			offset = i;
-			ctx->pos =
-				(ctx->pos & ~(sb->s_blocksize - 1)) | offset;
-			file->f_version = inode->i_version;
-		}
-#endif
+
 		while (ctx->pos < inode->i_size
 		       && offset < sb->s_blocksize) {
+
 			de = (struct pmfs_direntry *)(blk_base + offset);
-			if (de->de_len < PMFS_DIR_REC_LEN(1)) {
-				ctx->pos = ALIGN(ctx->pos, sb->s_blocksize);
-				break;
-			}
 
 			if (!pmfs_check_dir_entry("pmfs_readdir", inode, de,
 						   blk_base, offset)) {
