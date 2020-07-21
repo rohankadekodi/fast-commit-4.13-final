@@ -378,6 +378,7 @@ static int pmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	pmfs_transaction_t *trans;
 	int err = -EMLINK;
 	char *blk_base;
+	u64 bp = 0;
 
 	if (dir->i_nlink >= PMFS_LINK_MAX)
 		goto out;
@@ -410,7 +411,8 @@ static int pmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 		goto out_clear_inode;
 	inode->i_size = sb->s_blocksize;
 
-	blk_base = pmfs_get_block(sb, pmfs_find_data_block(inode, 0));
+	pmfs_find_data_blocks(inode, 0, &bp, 1);
+	blk_base = pmfs_get_block(sb, bp);
 	de = (struct pmfs_direntry *)blk_base;
 	pmfs_memunlock_range(sb, blk_base, sb->s_blocksize);
 	de->ino = cpu_to_le64(inode->i_ino);

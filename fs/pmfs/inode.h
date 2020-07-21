@@ -52,6 +52,8 @@ struct inode_table {
  */
 struct pmfs_inode_info_header {
 	struct rb_root rb_tree;         /* RB tree for directory */
+	struct rb_root vma_tree;	/* Write vmas */
+	int num_vmas;
 	unsigned short i_mode;
 	unsigned int i_flags;
 	unsigned long i_size;
@@ -95,28 +97,52 @@ pmfs_get_addr_off(struct pmfs_sb_info *sbi, void *addr)
 	return (u64)(addr - sbi->virt_addr);
 }
 
-static inline u64 __pmfs_find_data_block(struct super_block *sb,
-		struct pmfs_inode *pi, unsigned long blocknr)
+static inline unsigned long __pmfs_find_data_blocks(struct super_block *sb,
+						   struct pmfs_inode *pi,
+						   unsigned long blocknr,
+						   u64 *bp,
+						   unsigned long max_blocks)
 {
 	__le64 *level_ptr;
-	u64 bp = 0;
 	u32 height, bit_shift;
-	unsigned int idx;
+	unsigned int idx, cur_idx;
+	unsigned long num_contiguous_blocks = 0;
+	u64 cur_bp = 0;
+	u64 local_bp = 0;
 
 	height = pi->height;
-	bp = le64_to_cpu(pi->root);
+	local_bp = le64_to_cpu(pi->root);
 
 	while (height > 0) {
-		level_ptr = pmfs_get_block(sb, bp);
+		level_ptr = pmfs_get_block(sb, local_bp);
 		bit_shift = (height - 1) * META_BLK_SHIFT;
 		idx = blocknr >> bit_shift;
-		bp = le64_to_cpu(level_ptr[idx]);
-		if (bp == 0)
+
+		local_bp = le64_to_cpu(level_ptr[idx]);
+		if (local_bp == 0) {
+			*bp = 0;
 			return 0;
+		}
+
+		if (height == 1) {
+			/* Find the contiguous extent */
+			num_contiguous_blocks++;
+			cur_bp = local_bp;
+			cur_idx = idx;
+			while (num_contiguous_blocks < max_blocks) {
+				if (level_ptr[++cur_idx] != cur_bp + PAGE_SIZE)
+					break;
+				cur_bp += PAGE_SIZE;
+				num_contiguous_blocks++;
+			}
+		}
+
 		blocknr = blocknr & ((1 << bit_shift) - 1);
 		height--;
 	}
-	return bp;
+
+	*bp = local_bp;
+	return num_contiguous_blocks;
 }
 
 
@@ -304,8 +330,10 @@ extern int pmfs_init_inode_table(struct super_block *sb);
 extern int pmfs_alloc_blocks(pmfs_transaction_t *trans, struct inode *inode,
 			     unsigned long file_blocknr, unsigned int num,
 			     bool zero, int cpu);
-extern u64 pmfs_find_data_block(struct inode *inode,
-	unsigned long file_blocknr);
+extern unsigned long pmfs_find_data_blocks(struct inode *inode,
+				 unsigned long file_blocknr,
+				 u64 *bp,
+				 unsigned long max_blocks);
 int pmfs_set_blocksize_hint(struct super_block *sb, struct pmfs_inode *pi,
 		loff_t new_size);
 void pmfs_setsize(struct inode *inode, loff_t newsize);

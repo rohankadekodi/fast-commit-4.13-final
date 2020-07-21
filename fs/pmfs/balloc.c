@@ -349,6 +349,7 @@ bool pmfs_alloc_superpage(struct super_block *sb,
 	if (num_blocks != PAGES_PER_2MB) {
 		pmfs_dbg("%s: wrong number of blocks. Expected = 512. Requested = %lu\n",
 			 __func__, num_blocks);
+		dump_stack();
 		return found;
 	}
 
@@ -371,6 +372,9 @@ bool pmfs_alloc_superpage(struct super_block *sb,
 		free_list->num_blocknode_huge_aligned--;
 		found = 1;
 	}
+
+	pmfs_dbg_verbose("%s: blocknr = %lu. num_blocks = %lu\n",
+			 __func__, *new_blocknr, num_blocks);
 
 	return found;
 }
@@ -462,7 +466,8 @@ static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 
 		curr_blocks = curr->range_high - curr->range_low + 1;
 
-		pmfs_dbg_verbose("%s: curr->range_low = %lu. curr->range_high = %lu. curr_blocks = %lu\n",
+		pmfs_dbg_verbose("%s: curr->range_low = %lu. "
+				 "curr->range_high = %lu. curr_blocks = %lu\n",
 				 __func__, curr->range_low, curr->range_high, curr_blocks);
 
 		if (num_blocks >= curr_blocks) {

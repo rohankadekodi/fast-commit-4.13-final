@@ -10,7 +10,7 @@
  * warranty of any kind, whether express or implied.
  */
 
-int pmfs_get_xip_mem(struct address_space *, pgoff_t, int, void **,
+int pmfs_get_xip_mem(struct address_space *, pgoff_t, unsigned long, int, void **,
 		      unsigned long *);
 ssize_t pmfs_xip_file_read(struct file *filp, char __user *buf, size_t len,
 			    loff_t *ppos);
