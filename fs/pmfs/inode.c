@@ -316,12 +316,14 @@ static int recursive_truncate_blocks(struct super_block *sb, __le64 block,
 		while (i <= last_index) {
 			for (j = i; j <= last_index; j++) {
 				if (unlikely(!node[j])) {
-					blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[i]), btype);
-					pmfs_free_blocks(sb, blocknr, (j - i), btype);
-					freed += (j - i);
-					i = j + 1;
+					if (i < j) {
+						blocknr = pmfs_get_blocknr(sb, le64_to_cpu(node[i]), btype);
+						pmfs_free_blocks(sb, blocknr, (j - i), btype);
+						freed += (j - i);
+					}
 					prev_blocknr = 0;
 					blocknr = 0;
+					i = j + 1;
 					break;
 				} else {
 					prev_blocknr = blocknr;

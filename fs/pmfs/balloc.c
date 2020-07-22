@@ -588,6 +588,7 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 
 	if (num <= 0) {
 		pmfs_dbg("%s ERROR: free %d\n", __func__, num);
+		BUG();
 		return -EINVAL;
 	}
 
