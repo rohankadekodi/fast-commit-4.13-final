@@ -41,6 +41,7 @@
 #define PMFS_MOUNT_PROTECT_OLD 0x000200        /* wprotect PAGE RW Bit */
 #define PMFS_MOUNT_FORMAT      0x000400        /* was FS formatted on mount? */
 #define PMFS_MOUNT_MOUNTING    0x000800        /* FS currently being mounted */
+#define PMFS_MOUNT_STRICT      0x002000       /* atomic data guarantees */
 
 /*
  * Maximal count of links to a file

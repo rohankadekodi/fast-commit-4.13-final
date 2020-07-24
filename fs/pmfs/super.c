@@ -153,7 +153,7 @@ static loff_t pmfs_max_size(int bits)
 }
 
 enum {
-	Opt_bpi, Opt_init, Opt_jsize,
+	Opt_bpi, Opt_init, Opt_strict, Opt_jsize,
 	Opt_num_inodes, Opt_mode, Opt_uid,
 	Opt_gid, Opt_blocksize, Opt_wprotect, Opt_wprotectold,
 	Opt_err_cont, Opt_err_panic, Opt_err_ro,
@@ -163,6 +163,7 @@ enum {
 static const match_table_t tokens = {
 	{ Opt_bpi,	     "bpi=%u"		  },
 	{ Opt_init,	     "init"		  },
+	{ Opt_strict,        "strict"             },
 	{ Opt_jsize,     "jsize=%s"		  },
 	{ Opt_num_inodes,"num_inodes=%u"  },
 	{ Opt_mode,	     "mode=%o"		  },
@@ -225,6 +226,10 @@ static int pmfs_parse_options(char *options, struct pmfs_sb_info *sbi,
 			if (remount)
 				goto bad_opt;
 			set_opt(sbi->s_mount_opt, FORMAT);
+			break;
+		case Opt_strict:
+			set_opt(sbi->s_mount_opt, STRICT);
+			pmfs_info("Providing strong guarantees\n");
 			break;
 		case Opt_jsize:
 			if (remount)
@@ -857,6 +862,8 @@ static int pmfs_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",hugemmap");
 	if (test_opt(root->d_sb, HUGEIOREMAP))
 		seq_puts(seq, ",hugeioremap");
+	if (test_opt(root->d_sb, STRICT))
+		seq_puts(seq, ",strict");
 	/* xip not enabled by default */
 	if (test_opt(root->d_sb, XIP))
 		seq_puts(seq, ",xip");
