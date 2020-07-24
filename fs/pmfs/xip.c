@@ -299,6 +299,77 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
 
 /*
  * blk_off is used in different ways depending on whether the edge block is
+ * at the beginning or end of the write. If it is at the beginning, we copy from
+ * start-of-block to 'blk_off'. If it is the end block, we copy from 'blk_off' to
+ * end-of-block
+ */
+static inline void pmfs_copy_to_edge_blk (struct super_block *sb, struct
+				       pmfs_inode *pi, bool new_blk, unsigned long block, size_t blk_off,
+				       bool is_end_blk, void *buf)
+{
+	void *ptr;
+	size_t count;
+	unsigned long blknr;
+	u64 bp = 0;
+
+	if (!new_blk && buf != NULL) {
+		blknr = block >> (pmfs_inode_blk_shift(pi) -
+			sb->s_blocksize_bits);
+		__pmfs_find_data_blocks(sb, pi, blknr, &bp, 1);
+		ptr = pmfs_get_block(sb, bp);
+		if (ptr != NULL) {
+			if (is_end_blk) {
+				ptr = ptr + blk_off - (blk_off % 8);
+				count = pmfs_inode_blk_size(pi) -
+					blk_off + (blk_off % 8);
+			} else
+				count = blk_off + (8 - (blk_off % 8));
+
+			pmfs_memunlock_range(sb, ptr,  pmfs_inode_blk_size(pi));
+			memcpy_to_nvmm(ptr, 0, buf, count);
+			pmfs_memlock_range(sb, ptr,  pmfs_inode_blk_size(pi));
+		}
+	}
+}
+
+/*
+ * blk_off is used in different ways depending on whether the edge block is
+ * at the beginning or end of the write. If it is at the beginning, we copy from
+ * start-of-block to 'blk_off'. If it is the end block, we copy from 'blk_off' to
+ * end-of-block
+ */
+static inline void pmfs_copy_from_edge_blk (struct super_block *sb, struct
+				       pmfs_inode *pi, bool new_blk, unsigned long block, size_t blk_off,
+				       bool is_end_blk, void **buf)
+{
+	void *ptr;
+	size_t count;
+	unsigned long blknr;
+	u64 bp = 0;
+
+	if (!new_blk) {
+		blknr = block >> (pmfs_inode_blk_shift(pi) -
+			sb->s_blocksize_bits);
+		__pmfs_find_data_blocks(sb, pi, blknr, &bp, 1);
+		ptr = pmfs_get_block(sb, bp);
+		if (ptr != NULL) {
+			if (is_end_blk) {
+				ptr = ptr + blk_off - (blk_off % 8);
+				count = pmfs_inode_blk_size(pi) -
+					blk_off + (blk_off % 8);
+			} else
+				count = blk_off + (8 - (blk_off % 8));
+
+			*buf = kmalloc(count, GFP_KERNEL);
+			pmfs_memunlock_range(sb, ptr,  pmfs_inode_blk_size(pi));
+			__copy_to_user(*buf, ptr, count);
+			pmfs_memlock_range(sb, ptr,  pmfs_inode_blk_size(pi));
+		}
+	}
+}
+
+/*
+ * blk_off is used in different ways depending on whether the edge block is
  * at the beginning or end of the write. If it is at the beginning, we zero from
  * start-of-block to 'blk_off'. If it is the end block, we zero from 'blk_off' to
  * end-of-block
@@ -348,6 +419,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	bool same_block;
 	timing_t xip_write_time, xip_write_fast_time;
 	int num_blocks_found = 0;
+	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
+	void *start_buf = NULL, *end_buf = NULL;
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -420,12 +493,29 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 			new_eblk = true;
 	}
 
+	if (strong_guarantees) {
+		pmfs_copy_from_edge_blk(sb, pi, new_sblk, start_blk, offset, false, &start_buf);
+		pmfs_copy_from_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, &end_buf);
+	}
+
 	/* don't zero-out the allocated blocks */
-	pmfs_alloc_blocks(trans, inode, start_blk, num_blocks, false, ANY_CPU);
+	pmfs_alloc_blocks(trans, inode, start_blk, num_blocks, false, ANY_CPU, 1);
 
 	/* now zero out the edge blocks which will be partially written */
 	pmfs_clear_edge_blk(sb, pi, new_sblk, start_blk, offset, false);
 	pmfs_clear_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true);
+
+	if (strong_guarantees) {
+		pmfs_copy_to_edge_blk(sb, pi, new_sblk, start_blk, offset, false, start_buf);
+		pmfs_copy_to_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, end_buf);
+
+		if (start_buf)
+			kfree(start_buf);
+		if (end_buf)
+			kfree(end_buf);
+		start_buf = NULL;
+		end_buf = NULL;
+	}
 
 	written = __pmfs_xip_file_write(mapping, buf, count, pos, ppos);
 	if (written < 0 || written != count)
@@ -469,7 +559,7 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 		trans = pmfs_current_transaction();
 		if (trans) {
 			allocated = pmfs_alloc_blocks(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU);
+						      max_blocks, true, ANY_CPU, 0);
 
 			if (allocated < 0) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
@@ -490,7 +580,7 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 			pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY,
 				LE_DATA);
 			allocated = pmfs_alloc_blocks(trans, inode, iblock,
-						max_blocks, true, ANY_CPU);
+						      max_blocks, true, ANY_CPU, 0);
 
 			pmfs_commit_transaction(sb, trans);
 

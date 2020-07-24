@@ -611,6 +611,10 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 		}
 		new_node_used = 0;
 
+		if (cpuid < 0) {
+			BUG();
+		}
+
 		spin_lock(&free_list->s_lock);
 
 		num_blocks_local = num_blocks > PAGES_PER_2MB ? PAGES_PER_2MB : num_blocks;
@@ -774,6 +778,7 @@ int pmfs_new_blocks(struct super_block *sb, unsigned long *blocknr,
 
 retry:
 	free_list = pmfs_get_free_list(sb, cpuid);
+
 	spin_lock(&free_list->s_lock);
 
 	if (not_enough_blocks(free_list, num_blocks)) {
@@ -787,6 +792,7 @@ retry:
 			goto alloc;
 
 		spin_unlock(&free_list->s_lock);
+
 		cpuid = pmfs_get_candidate_free_list(sb);
 		retried++;
 		goto retry;

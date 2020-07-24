@@ -270,7 +270,7 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	}
 	//}
 
-	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false, ANY_CPU);
+	retval = pmfs_alloc_blocks(trans, dir, blocks, 1, false, ANY_CPU, 0);
 	if (retval)
 		goto out;
 

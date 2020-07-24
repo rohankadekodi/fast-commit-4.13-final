@@ -221,7 +221,7 @@ static int pmfs_allocate_datablock_block_inode(pmfs_transaction_t *trans,
 	pi->i_size = cpu_to_le64(num_blocks << sb->s_blocksize_bits);
 	pmfs_memlock_inode(sb, pi);
 
-	errval = __pmfs_alloc_blocks(trans, sb, pi, 0, num_blocks, false);
+	errval = __pmfs_alloc_blocks(trans, sb, pi, 0, num_blocks, false, 0);
 #endif
 	return errval;
 }
