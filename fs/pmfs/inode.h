@@ -325,11 +325,15 @@ extern unsigned int pmfs_free_inode_subtree(struct super_block *sb,
 extern int __pmfs_alloc_blocks(pmfs_transaction_t *trans,
 		struct super_block *sb, struct pmfs_inode *pi,
 			       unsigned long file_blocknr,
-			       unsigned int num, bool zero, int cpu, int write_path);
+			       unsigned int num, bool zero, int cpu, int write_path,
+			       __le64 *free_blk_list, unsigned long *num_free_blks);
+int truncate_strong_guarantees(struct super_block *sb, __le64 *node,
+			       unsigned long num_blocks, u32 btype);
 extern int pmfs_init_inode_table(struct super_block *sb);
 extern int pmfs_alloc_blocks(pmfs_transaction_t *trans, struct inode *inode,
 			     unsigned long file_blocknr, unsigned int num,
-			     bool zero, int cpu, int write_path);
+			     bool zero, int cpu, int write_path, __le64 *free_blk_list,
+			     unsigned long *num_free_blks);
 extern unsigned long pmfs_find_data_blocks(struct inode *inode,
 				 unsigned long file_blocknr,
 				 u64 *bp,

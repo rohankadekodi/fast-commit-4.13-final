@@ -421,6 +421,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	int num_blocks_found = 0;
 	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
 	void *start_buf = NULL, *end_buf = NULL;
+	__le64 *free_blk_list = NULL;
+	unsigned long num_free_blks = 0;
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -496,10 +498,14 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	if (strong_guarantees) {
 		pmfs_copy_from_edge_blk(sb, pi, new_sblk, start_blk, offset, false, &start_buf);
 		pmfs_copy_from_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, &end_buf);
+
+		free_blk_list = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
+		num_free_blks = 0;
 	}
 
 	/* don't zero-out the allocated blocks */
-	pmfs_alloc_blocks(trans, inode, start_blk, num_blocks, false, ANY_CPU, 1);
+	pmfs_alloc_blocks(trans, inode, start_blk, num_blocks, false,
+			  ANY_CPU, 1, free_blk_list, &num_free_blks);
 
 	/* now zero out the edge blocks which will be partially written */
 	pmfs_clear_edge_blk(sb, pi, new_sblk, start_blk, offset, false);
@@ -524,6 +530,14 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 				 written, count, pos, start_blk, num_blocks);
 
 	pmfs_commit_transaction(sb, trans);
+
+	if (free_blk_list != NULL && num_free_blks != 0) {
+		truncate_strong_guarantees(sb, free_blk_list, num_free_blks, pi->i_blk_type);
+		kfree(free_blk_list);
+		free_blk_list = NULL;
+		num_free_blks = 0;
+	}
+
 	ret = written;
 out:
 	inode_unlock(inode);
@@ -559,7 +573,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 		trans = pmfs_current_transaction();
 		if (trans) {
 			allocated = pmfs_alloc_blocks(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU, 0);
+						      max_blocks, true, ANY_CPU, 0,
+						      NULL, NULL);
 
 			if (allocated < 0) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
@@ -580,7 +595,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 			pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY,
 				LE_DATA);
 			allocated = pmfs_alloc_blocks(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU, 0);
+						      max_blocks, true, ANY_CPU, 0,
+						      NULL, NULL);
 
 			pmfs_commit_transaction(sb, trans);
 

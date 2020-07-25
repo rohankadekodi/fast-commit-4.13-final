@@ -290,7 +290,7 @@ static inline bool is_empty_meta_block(__le64 *node, unsigned int start_idx,
  * last_blocknr: last_blocknr in the specified range
  * end: last byte offset of the range
  */
-static int truncate_strong_guarantees(struct super_block *sb, __le64 *node,
+int truncate_strong_guarantees(struct super_block *sb, __le64 *node,
 				      unsigned long num_blocks, u32 btype)
 {
 	unsigned long blocknr = 0;
@@ -688,19 +688,18 @@ static int pmfs_increase_btree_height(struct super_block *sb,
 static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				  struct super_block *sb, struct pmfs_inode *pi, __le64 block, u32 height,
 				  unsigned long first_blocknr, unsigned long last_blocknr, bool new_node,
-				  bool zero, int cpu, int write_path)
+				  bool zero, int cpu, int write_path, __le64 *free_blk_list,
+				  unsigned long *num_free_blks)
 {
 	int i, j, errval;
 	unsigned int meta_bits = META_BLK_SHIFT, node_bits;
-	__le64 *node, *del_node = NULL;
+	__le64 *node;
 	bool journal_saved = 0;
 	unsigned long blocknr, first_blk, last_blk;
 	unsigned int first_index, last_index;
 	unsigned int flush_bytes;
 	int num_blocks = 0;
 	int allocated, freed;
-	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
-	int del_node_idx = 0;
 
 	node = pmfs_get_block(sb, le64_to_cpu(block));
 
@@ -712,7 +711,7 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 	i = first_index;
 	while (i <= last_index) {
 		if (height == 1) {
-			if (node[i] == 0 || (node[i] != 0 && strong_guarantees && write_path)) {
+			if (node[i] == 0 || (free_blk_list != NULL)) {
 				num_blocks = last_index - i + 1;
 
 				/* Break large allocations into 2MB chunks */
@@ -743,15 +742,12 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				}
 				pmfs_memunlock_block(sb, node);
 
-				if (strong_guarantees && node[i] != 0 && write_path) {
-					del_node = kmalloc(sizeof(__le64) * (allocated), GFP_KERNEL);
-					del_node_idx = 0;
-				}
-
 				for (j = i; j < i+allocated; j++) {
 
-					if (del_node && node[j] != 0)
-						del_node[del_node_idx++] = node[j];
+					if (free_blk_list != NULL && node[j] != 0) {
+						free_blk_list[*num_free_blks] = node[j];
+						(*num_free_blks) += 1;
+					}
 
 					node[j] = cpu_to_le64(pmfs_get_block_off(sb,
 										 blocknr,
@@ -759,18 +755,13 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 					blocknr++;
 				}
 
-				if (del_node) {
-					freed = truncate_strong_guarantees(sb, del_node,
-									   del_node_idx,
-									   pi->i_blk_type);
-					if (freed != del_node_idx) {
-						pmfs_dbg("freed != allocated in strong guarantees. "
-							 "freed = %d, allocated = %d",
-							 freed, del_node_idx);
-					}
-					kfree(del_node);
-					del_node = NULL;
+				if (free_blk_list != NULL && (*num_free_blks != 0)) {
+					unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
+					pmfs_memunlock_inode(sb, pi);
+					pi->i_blocks -= ((*num_free_blks) << (data_bits - sb->s_blocksize_bits));
+					pmfs_memunlock_inode(sb, pi);
 				}
+
 
 				pmfs_memlock_block(sb, node);
 				i += allocated;
@@ -812,7 +803,8 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 			errval = recursive_alloc_blocks(trans, sb, pi, node[i],
 							height - 1, first_blk,
 							last_blk, new_node,
-							zero, cpu, write_path);
+							zero, cpu, write_path,
+							free_blk_list, num_free_blks);
 			if (errval < 0)
 				goto fail;
 			i++;
@@ -832,7 +824,8 @@ fail:
 
 int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 			struct pmfs_inode *pi, unsigned long file_blocknr, unsigned int num,
-			bool zero, int cpu, int write_path)
+			bool zero, int cpu, int write_path,
+			__le64 *free_blk_list, unsigned long *num_free_blks)
 {
 	int errval;
 	unsigned long max_blocks;
@@ -899,7 +892,9 @@ int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 			}
 			errval = recursive_alloc_blocks(trans, sb, pi, pi->root,
 							pi->height, first_blocknr,
-							last_blocknr, 1, zero, cpu, write_path);
+							last_blocknr, 1, zero, cpu,
+							write_path, free_blk_list,
+							num_free_blks);
 			if (errval < 0)
 				goto fail;
 		}
@@ -918,7 +913,8 @@ int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 		}
 		errval = recursive_alloc_blocks(trans, sb, pi, pi->root, height,
 						first_blocknr, last_blocknr,
-						0, zero, cpu, write_path);
+						0, zero, cpu, write_path,
+						free_blk_list, num_free_blks);
 		if (errval < 0)
 			goto fail;
 	}
@@ -935,14 +931,16 @@ fail:
  */
 inline int pmfs_alloc_blocks(pmfs_transaction_t *trans, struct inode *inode,
 			     unsigned long file_blocknr, unsigned int num,
-			     bool zero, int cpu, int write_path)
+			     bool zero, int cpu, int write_path,
+			     __le64 *free_blk_list, unsigned long *num_free_blks)
 {
 	struct super_block *sb = inode->i_sb;
 	struct pmfs_inode *pi = pmfs_get_inode(sb, inode->i_ino);
 	int errval;
 
 	errval = __pmfs_alloc_blocks(trans, sb, pi, file_blocknr,
-				     num, zero, cpu, write_path);
+				     num, zero, cpu, write_path,
+				     free_blk_list, num_free_blks);
 	inode->i_blocks = le64_to_cpu(pi->i_blocks);
 
 	return errval;
@@ -1502,7 +1500,7 @@ static int pmfs_increase_inode_table_size(struct super_block *sb)
 
 	errval = __pmfs_alloc_blocks(trans, sb, pi,
 			le64_to_cpup(&pi->i_size) >> sb->s_blocksize_bits,
-				     1, true, 0);
+				     1, true, 0, NULL, NULL);
 
 	if (errval == 0) {
 		u64 i_size = le64_to_cpu(pi->i_size);
