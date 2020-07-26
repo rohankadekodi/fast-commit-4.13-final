@@ -642,7 +642,6 @@ end_truncate_blocks:
 	pmfs_flush_buffer(pi, 1, false);
 }
 
-
 static int pmfs_increase_btree_height(struct super_block *sb,
 		struct pmfs_inode *pi, u32 new_height)
 {
@@ -743,12 +742,10 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				pmfs_memunlock_block(sb, node);
 
 				for (j = i; j < i+allocated; j++) {
-
 					if (free_blk_list != NULL && node[j] != 0) {
 						free_blk_list[*num_free_blks] = node[j];
 						(*num_free_blks) += 1;
 					}
-
 					node[j] = cpu_to_le64(pmfs_get_block_off(sb,
 										 blocknr,
 										 pi->i_blk_type));
@@ -761,8 +758,6 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 					pi->i_blocks -= ((*num_free_blks) << (data_bits - sb->s_blocksize_bits));
 					pmfs_memunlock_inode(sb, pi);
 				}
-
-
 				pmfs_memlock_block(sb, node);
 				i += allocated;
 			} else {
@@ -945,7 +940,6 @@ inline int pmfs_alloc_blocks(pmfs_transaction_t *trans, struct inode *inode,
 
 	return errval;
 }
-
 
 static int pmfs_alloc_inode_table(struct super_block *sb)
 {
