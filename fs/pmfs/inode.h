@@ -37,6 +37,7 @@ struct pmfs_inode {
 	struct {
 		__le32 rdev;    /* major/minor # */
 	} dev;              /* device inode */
+	u8      huge_aligned_file;  /* is the file hugepage aligned */
 	__le32 padding;     /* pad to ensure truncate_item starts 8-byte aligned */
 };
 
@@ -323,17 +324,28 @@ int pmfs_init_inode_inuse_list(struct super_block *sb);
 extern unsigned int pmfs_free_inode_subtree(struct super_block *sb,
 		__le64 root, u32 height, u32 btype, unsigned long last_blocknr);
 extern int __pmfs_alloc_blocks(pmfs_transaction_t *trans,
-		struct super_block *sb, struct pmfs_inode *pi,
+			       struct super_block *sb, struct pmfs_inode *pi,
 			       unsigned long file_blocknr,
 			       unsigned int num, bool zero, int cpu, int write_path,
-			       __le64 *free_blk_list, unsigned long *num_free_blks);
+			       __le64 *free_blk_list, unsigned long *num_free_blks,
+			       void **log_entries, __le64 *log_entry_nums, int *log_entry_idx);
+extern int __pmfs_alloc_blocks_wrapper(pmfs_transaction_t *trans,
+				       struct super_block *sb,
+				       struct pmfs_inode *pi,
+				       unsigned long file_blocknr,
+				       unsigned int num, bool zero,
+				       int cpu, int write_path);
 int truncate_strong_guarantees(struct super_block *sb, __le64 *node,
 			       unsigned long num_blocks, u32 btype);
 extern int pmfs_init_inode_table(struct super_block *sb);
 extern int pmfs_alloc_blocks(pmfs_transaction_t *trans, struct inode *inode,
 			     unsigned long file_blocknr, unsigned int num,
 			     bool zero, int cpu, int write_path, __le64 *free_blk_list,
-			     unsigned long *num_free_blks);
+			     unsigned long *num_free_blks, void **log_entries,
+			     __le64 *log_entry_nums, int *log_entry_idx);
+extern int pmfs_alloc_blocks_weak(pmfs_transaction_t *trans, struct inode *inode,
+				  unsigned long file_blocknr, unsigned int num,
+				  bool zero, int cpu, int write_path);
 extern unsigned long pmfs_find_data_blocks(struct inode *inode,
 				 unsigned long file_blocknr,
 				 u64 *bp,

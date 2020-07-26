@@ -406,8 +406,8 @@ static int pmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	/* since this is a new inode so we don't need to include this
 	 * pmfs_alloc_blocks in the transaction
 	 */
-	err = pmfs_alloc_blocks(NULL, inode, 0, 1,
-				false, ANY_CPU, 0, NULL, NULL);
+	err = pmfs_alloc_blocks_weak(NULL, inode, 0, 1,
+				false, ANY_CPU, 0);
 	if (err)
 		goto out_clear_inode;
 	inode->i_size = sb->s_blocksize;

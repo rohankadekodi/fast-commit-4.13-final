@@ -25,8 +25,8 @@ int pmfs_block_symlink(struct inode *inode, const char *symname, int len)
 	char *blockp;
 	int err;
 
-	err = pmfs_alloc_blocks(NULL, inode, 0, 1,
-				false, ANY_CPU, 0, NULL, NULL);
+	err = pmfs_alloc_blocks_weak(NULL, inode, 0, 1,
+				false, ANY_CPU, 0);
 	if (err)
 		return err;
 

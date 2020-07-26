@@ -14,6 +14,8 @@ int pmfs_get_xip_mem(struct address_space *, pgoff_t, unsigned long, int, void *
 		      unsigned long *);
 ssize_t pmfs_xip_file_read(struct file *filp, char __user *buf, size_t len,
 			    loff_t *ppos);
+ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
+				size_t len, loff_t *ppos);
 ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 		size_t len, loff_t *ppos);
 int pmfs_xip_file_mmap(struct file *file, struct vm_area_struct *vma);

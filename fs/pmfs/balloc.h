@@ -36,7 +36,6 @@ struct free_list {
 	unsigned long	freed_log_pages;
 	unsigned long	freed_data_pages;
 	*/
-
 	u64		padding[8];	/* Cache line break.
 					 * [TODO]: Need to measure this */
 };

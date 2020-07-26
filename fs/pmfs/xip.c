@@ -402,7 +402,7 @@ static inline void pmfs_clear_edge_blk (struct super_block *sb, struct
 	}
 }
 
-ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
+ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
           size_t len, loff_t *ppos)
 {
 	struct address_space *mapping = filp->f_mapping;
@@ -419,10 +419,16 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	bool same_block;
 	timing_t xip_write_time, xip_write_fast_time;
 	int num_blocks_found = 0;
-	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
 	void *start_buf = NULL, *end_buf = NULL;
 	__le64 *free_blk_list = NULL;
-	unsigned long num_free_blks = 0;
+	__le64 *inplace_blk_list = NULL;
+	__le64 **log_entries = NULL;
+	__le64 *log_entry_nums = NULL;
+	unsigned long num_inplace_blks = 0;
+	int log_entry_idx = 0;
+	int idx = 0, idx2 = 0;
+	int free_blk_list_idx = 0;
+	__le64 block_val = 0;
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -495,6 +501,193 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 			new_eblk = true;
 	}
 
+	pmfs_copy_from_edge_blk(sb, pi, new_sblk, start_blk, offset, false, &start_buf);
+	pmfs_copy_from_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, &end_buf);
+
+	inplace_blk_list = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
+	free_blk_list = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
+	log_entries = (__le64 **) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
+	log_entry_nums = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
+
+	num_inplace_blks = 0;
+
+	/* don't zero-out the allocated blocks */
+	pmfs_alloc_blocks(trans, inode, start_blk, num_blocks, false,
+			  ANY_CPU, 1, inplace_blk_list, &num_inplace_blks,
+			  (void **)log_entries, log_entry_nums, &log_entry_idx);
+
+	/* now zero out the edge blocks which will be partially written */
+	pmfs_clear_edge_blk(sb, pi, new_sblk, start_blk, offset, false);
+	pmfs_clear_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true);
+
+	pmfs_copy_to_edge_blk(sb, pi, new_sblk, start_blk, offset, false, start_buf);
+	pmfs_copy_to_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, end_buf);
+
+	if (start_buf)
+		kfree(start_buf);
+	if (end_buf)
+		kfree(end_buf);
+	start_buf = NULL;
+	end_buf = NULL;
+
+	written = __pmfs_xip_file_write(mapping, buf, count, pos, ppos);
+	if (written < 0 || written != count)
+		pmfs_dbg_verbose("write incomplete/failed: written %ld len %ld"
+				 " pos %llx start_blk %lx num_blocks %lx\n",
+				 written, count, pos, start_blk, num_blocks);
+
+	pmfs_commit_transaction(sb, trans);
+
+	trans = pmfs_new_transaction(sb, max_logentries);
+	if (IS_ERR(trans)) {
+		ret = PTR_ERR(trans);
+		goto out;
+	}
+
+	free_blk_list_idx = 0;
+	for (idx = 0; idx < log_entry_idx; idx++) {
+		pmfs_add_logentry(sb, trans, (void *)log_entries[idx],
+				  (size_t)log_entry_nums[idx] << 3, LE_DATA);
+
+		for (idx2 = 0; idx2 < log_entry_nums[idx]; idx2++) {
+			block_val = *(log_entries[idx] + (idx2));
+			if (block_val != 0) {
+				free_blk_list[free_blk_list_idx] = block_val;
+				*(log_entries[idx] + (idx2)) = inplace_blk_list[free_blk_list_idx];
+				free_blk_list_idx++;
+			}
+		}
+	}
+
+	written = __pmfs_xip_file_write(mapping, buf, count, pos, ppos);
+	if (written < 0 || written != count)
+		pmfs_dbg_verbose("write incomplete/failed: written %ld len %ld"
+				 " pos %llx start_blk %lx num_blocks %lx\n",
+				 written, count, pos, start_blk, num_blocks);
+
+	pmfs_commit_transaction(sb, trans);
+
+	if (free_blk_list != NULL && num_inplace_blks != 0) {
+		truncate_strong_guarantees(sb, free_blk_list,
+					   free_blk_list_idx,
+					   pi->i_blk_type);
+		kfree(free_blk_list);
+		kfree(log_entries);
+		kfree(log_entry_nums);
+		kfree(inplace_blk_list);
+		free_blk_list = NULL;
+		num_inplace_blks = 0;
+		log_entry_idx = 0;
+	}
+
+	ret = written;
+out:
+	inode_unlock(inode);
+	sb_end_write(inode->i_sb);
+	PMFS_END_TIMING(xip_write_t, xip_write_time);
+
+	return ret;
+}
+
+
+ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
+          size_t len, loff_t *ppos)
+{
+	struct address_space *mapping = filp->f_mapping;
+	struct inode    *inode = mapping->host;
+	struct super_block *sb = inode->i_sb;
+	pmfs_transaction_t *trans;
+	struct pmfs_inode *pi;
+	ssize_t     written = 0;
+	loff_t pos;
+	u64 block;
+	bool new_sblk = false, new_eblk = false;
+	size_t count, offset, eblk_offset, ret;
+	unsigned long start_blk, end_blk, num_blocks, max_logentries;
+	bool same_block;
+	timing_t xip_write_time, xip_write_fast_time;
+	int num_blocks_found = 0;
+	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
+	void *start_buf = NULL, *end_buf = NULL;
+	__le64 *free_blk_list = NULL;
+	unsigned long num_free_blks = 0;
+
+	PMFS_START_TIMING(xip_write_t, xip_write_time);
+
+	sb_start_write(inode->i_sb);
+	inode_lock(inode);
+
+	if (!access_ok(VERIFY_READ, buf, len)) {
+		ret = -EFAULT;
+		goto out;
+	}
+	pos = *ppos;
+	count = len;
+	if (count == 0) {
+		ret = 0;
+		goto out;
+	}
+
+	pi = pmfs_get_inode(sb, inode->i_ino);
+	if (pi->huge_aligned_file) {
+		inode_unlock(inode);
+		sb_end_write(inode->i_sb);
+		return pmfs_xip_cow_file_write(filp, buf, len, ppos);
+	}
+
+	offset = pos & (sb->s_blocksize - 1);
+	num_blocks = ((count + offset - 1) >> sb->s_blocksize_bits) + 1;
+	/* offset in the actual block size block */
+	offset = pos & (pmfs_inode_blk_size(pi) - 1);
+	start_blk = pos >> sb->s_blocksize_bits;
+	end_blk = start_blk + num_blocks - 1;
+
+	num_blocks_found = pmfs_find_data_blocks(inode, start_blk, &block, 1);
+
+	/* Referring to the inode's block size, not 4K */
+	same_block = (((count + offset - 1) >>
+			pmfs_inode_blk_shift(pi)) == 0) ? 1 : 0;
+	if (block && same_block) {
+		PMFS_START_TIMING(xip_write_fast_t, xip_write_fast_time);
+		ret = pmfs_file_write_fast(sb, inode, pi, buf, count, pos,
+			ppos, block);
+		PMFS_END_TIMING(xip_write_fast_t, xip_write_fast_time);
+		goto out;
+	}
+	max_logentries = num_blocks / MAX_PTRS_PER_LENTRY + 2;
+	if (max_logentries > MAX_METABLOCK_LENTRIES)
+		max_logentries = MAX_METABLOCK_LENTRIES;
+
+	trans = pmfs_new_transaction(sb, MAX_INODE_LENTRIES + max_logentries);
+	if (IS_ERR(trans)) {
+		ret = PTR_ERR(trans);
+		goto out;
+	}
+	pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY, LE_DATA);
+
+	ret = file_remove_privs(filp);
+	if (ret) {
+		pmfs_abort_transaction(sb, trans);
+		goto out;
+	}
+	inode->i_ctime = inode->i_mtime = current_time(inode);
+	pmfs_update_time(inode, pi);
+
+	/* We avoid zeroing the alloc'd range, which is going to be overwritten
+	 * by this system call anyway */
+	if (offset != 0) {
+		pmfs_find_data_blocks(inode, start_blk, &block, 1);
+		if (block == 0)
+		    new_sblk = true;
+	}
+
+	eblk_offset = (pos + count) & (pmfs_inode_blk_size(pi) - 1);
+	if (eblk_offset != 0) {
+		pmfs_find_data_blocks(inode, end_blk, &block, 1);
+		if (block == 0)
+			new_eblk = true;
+	}
+
 	if (strong_guarantees) {
 		pmfs_copy_from_edge_blk(sb, pi, new_sblk, start_blk, offset, false, &start_buf);
 		pmfs_copy_from_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, &end_buf);
@@ -505,7 +698,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 
 	/* don't zero-out the allocated blocks */
 	pmfs_alloc_blocks(trans, inode, start_blk, num_blocks, false,
-			  ANY_CPU, 1, free_blk_list, &num_free_blks);
+			  ANY_CPU, 1, free_blk_list, &num_free_blks,
+			  NULL, NULL, NULL);
 
 	/* now zero out the edge blocks which will be partially written */
 	pmfs_clear_edge_blk(sb, pi, new_sblk, start_blk, offset, false);
@@ -572,9 +766,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 		pi = pmfs_get_inode(sb, inode->i_ino);
 		trans = pmfs_current_transaction();
 		if (trans) {
-			allocated = pmfs_alloc_blocks(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU, 0,
-						      NULL, NULL);
+			allocated = pmfs_alloc_blocks_weak(trans, inode, iblock,
+						      max_blocks, true, ANY_CPU, 0);
 
 			if (allocated < 0) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
@@ -594,9 +787,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 
 			pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY,
 				LE_DATA);
-			allocated = pmfs_alloc_blocks(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU, 0,
-						      NULL, NULL);
+			allocated = pmfs_alloc_blocks_weak(trans, inode, iblock,
+						      max_blocks, true, ANY_CPU, 0);
 
 			pmfs_commit_transaction(sb, trans);
 
