@@ -753,6 +753,14 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 
 	cpuid = blocknr / sbi->per_list_blocks;
 
+	if (sbi->num_numas == 2 && sbi->cpus == 96) {
+		if (cpuid >= 24 && cpuid < 48) {
+			cpuid += 24;
+		} else if (cpuid >= 48 && cpuid < 72) {
+			cpuid -= 24;
+		}
+	}
+
 	free_list = pmfs_get_free_list(sb, cpuid);
 
 	tree = &(free_list->unaligned_block_free_tree);
