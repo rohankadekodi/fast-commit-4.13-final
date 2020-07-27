@@ -753,7 +753,7 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 
 	cpuid = blocknr / sbi->per_list_blocks;
 
-	if (sbi->num_numas == 2 && sbi->cpus == 96) {
+	if (sbi->num_numa_nodes == 2 && sbi->cpus == 96) {
 		if (cpuid >= 24 && cpuid < 48) {
 			cpuid += 24;
 		} else if (cpuid >= 48 && cpuid < 72) {
