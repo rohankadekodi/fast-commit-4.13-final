@@ -1611,9 +1611,6 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	if (!diri)
 		return ERR_PTR(-EACCES);
 
-	//mutex_lock(&sbi->inode_table_mutex);
-
-	//#if 0
 	map_id = sbi->map_id;
 	sbi->map_id = (sbi->map_id + 1) % sbi->cpus;
 	inode_map = &sbi->inode_maps[map_id];
@@ -1624,40 +1621,16 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	if (errval) {
 		pmfs_dbg("%s: alloc inode number failed %d\n", __func__, errval);
 		mutex_unlock(&inode_map->inode_table_mutex);
-		//mutex_unlock(&sbi->inode_table_mutex);
 		return 0;
 	}
-
-
-	//mutex_unlock(&inode_map->inode_table_mutex);
 
 	/* FIXME: Should handle this part */
 
 	mutex_unlock(&inode_map->inode_table_mutex);
 	ino = free_ino;
 
-	/*
-	if (unlikely(ino >= num_inodes)) {
-		errval = pmfs_increase_inode_table_size(sb);
-		if (errval == 0) {
-			if (ino >= sbi->s_inodes_count) {
-				pmfs_dbg("%s: ino = %lu. s_inodes_count = %lu\n"
-					 , __func__, ino, sbi->s_inodes_count);
-			}
-		} else {
-			mutex_unlock(&PMFS_SB(sb)->inode_table_mutex);
-			pmfs_dbg("PMFS: could not find a free inode\n");
-			goto fail1;
-		}
-	}
-
-	ino = ino << PMFS_INODE_BITS;
-	*/
-
 	pi = pmfs_get_inode(sb, ino);
 	pmfs_dbg_verbose("%s: ino = %lu, pmfs_inode = 0x%p", __func__, ino, pi);
-
-	//#endif
 
 	pmfs_dbg_verbose("allocating inode %lx\n", ino);
 
@@ -1671,18 +1644,10 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	pi->height = 0;
 	pi->i_dtime = 0;
 	pi->huge_aligned_file = 0;
+	pi->numa_node = pmfs_get_numa_node(sb, map_id);
 	pmfs_memlock_inode(sb, pi);
 
 	sbi->s_free_inodes_count -= 1;
-
-	/*
-	if (i < (sbi->s_inodes_count) - 1)
-		sbi->s_free_inode_hint = (i + 1);
-	else
-		sbi->s_free_inode_hint = (PMFS_FREE_INODE_HINT_START);
-
-	mutex_unlock(&sbi->inode_table_mutex);
-	*/
 
 	pmfs_update_inode(inode, pi);
 
@@ -1700,7 +1665,6 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 		errval = -EINVAL;
 		goto fail1;
 	}
-
 
 	return inode;
 fail1:

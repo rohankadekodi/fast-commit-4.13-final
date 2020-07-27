@@ -80,6 +80,16 @@ void pmfs_delete_free_lists(struct super_block *sb)
 	sbi->free_lists = NULL;
 }
 
+static void swap_free_lists(struct super_block *sb, int first_list,
+			    int second_list) {
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct free_list temp_free_list;
+
+	memcpy(&temp_free_list, &sbi->free_lists[first_list], sizeof(struct free_list));
+	memcpy(&sbi->free_lists[first_list], &sbi->free_lists[second_list], sizeof(struct free_list));
+	memcpy(&sbi->free_lists[second_list], &temp_free_list, sizeof(struct free_list));
+}
+
 void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
@@ -210,6 +220,12 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 				 free_list->num_free_blocks,
 				 free_list->num_blocknode_huge_aligned,
 				 free_list->num_blocknode_unaligned);
+	}
+
+	if (sbi->cpus == 96 && sbi->num_numa_nodes == 2) {
+		for (i = 24, j = 48; i < 48; i++, j++) {
+			swap_free_lists(sb, i, j);
+		}
 	}
 }
 

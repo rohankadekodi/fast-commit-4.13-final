@@ -153,7 +153,7 @@ static loff_t pmfs_max_size(int bits)
 }
 
 enum {
-	Opt_bpi, Opt_init, Opt_strict, Opt_jsize,
+	Opt_bpi, Opt_init, Opt_strict, Opt_num_numas, Opt_jsize,
 	Opt_num_inodes, Opt_mode, Opt_uid,
 	Opt_gid, Opt_blocksize, Opt_wprotect, Opt_wprotectold,
 	Opt_err_cont, Opt_err_panic, Opt_err_ro,
@@ -164,8 +164,9 @@ static const match_table_t tokens = {
 	{ Opt_bpi,	     "bpi=%u"		  },
 	{ Opt_init,	     "init"		  },
 	{ Opt_strict,        "strict"             },
-	{ Opt_jsize,     "jsize=%s"		  },
-	{ Opt_num_inodes,"num_inodes=%u"  },
+	{ Opt_num_numas,     "num_numas=%u"       },
+	{ Opt_jsize,         "jsize=%s"		  },
+	{ Opt_num_inodes,    "num_inodes=%u"      },
 	{ Opt_mode,	     "mode=%o"		  },
 	{ Opt_uid,	     "uid=%u"		  },
 	{ Opt_gid,	     "gid=%u"		  },
@@ -230,6 +231,13 @@ static int pmfs_parse_options(char *options, struct pmfs_sb_info *sbi,
 		case Opt_strict:
 			set_opt(sbi->s_mount_opt, STRICT);
 			pmfs_info("Providing strong guarantees\n");
+			break;
+		case Opt_num_numas:
+			if (remount)
+				goto bad_opt;
+			if (match_int(&args[0], &option))
+				goto bad_val;
+			sbi->num_numa_nodes = option;
 			break;
 		case Opt_jsize:
 			if (remount)
@@ -502,6 +510,7 @@ static inline void set_default_opts(struct pmfs_sb_info *sbi)
 	set_opt(sbi->s_mount_opt, ERRORS_CONT);
 	sbi->jsize = PMFS_DEFAULT_JOURNAL_SIZE;
 	sbi->cpus = num_online_cpus();
+	sbi->num_numa_nodes = 1;
 	sbi->map_id = 0;
 	pmfs_info("%d cpus online\n", sbi->cpus);
 }
@@ -687,6 +696,7 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 
 	sbi->inode_maps = kcalloc(sbi->cpus, sizeof(struct inode_map),
 				  GFP_KERNEL);
+
 	if (!sbi->inode_maps) {
 		retval = -ENOMEM;
 		pmfs_dbg("%s: Allocating inode maps failed.",
@@ -702,6 +712,73 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (pmfs_parse_options(data, sbi, 0))
 		goto out;
+
+	sbi->cpu_numa_node = kcalloc(sbi->cpus, sizeof(u8), GFP_KERNEL);
+	if (!sbi->cpu_numa_node) {
+		retval = -ENOMEM;
+		pmfs_dbg("%s: Allocating cpu numa node struct failed.",
+			 __func__);
+		goto out;
+	}
+
+	sbi->numa_cpus = kcalloc(sbi->num_numa_nodes,
+				 sizeof(struct numa_node_cpus), GFP_KERNEL);
+	if (!sbi->numa_cpus) {
+		retval = -ENOMEM;
+		pmfs_dbg("%s: Allocating numa node cpu struct failed.",
+			 __func__);
+		goto out;
+	}
+
+	for (i = 0; i < sbi->num_numa_nodes; i++) {
+		sbi->numa_cpus[i].cpus = kcalloc(sbi->cpus,
+						 sizeof(int), GFP_KERNEL);
+		if (!sbi->numa_cpus[i].cpus) {
+			retval = -ENOMEM;
+			pmfs_dbg("%s: Allocating cpu int array failed.",
+				 __func__);
+			goto out;
+		}
+		cpumask_clear(&sbi->numa_cpus[i].cpumask);
+	}
+
+	if (sbi->num_numa_nodes == 1) {
+		for (i = 0; i < sbi->cpus; i++) {
+			sbi->numa_cpus[0].cpus[i] = 1;
+			sbi->cpu_numa_node[i] = 0;
+		}
+	} else {
+		/* TODO: Need to take it from mount as a param from user */
+		if (sbi->cpus == 96) {
+			for (i = 0; i < sbi->cpus; i++) {
+				if (i < 24 || (i >= 48 && i < 72)) {
+					sbi->numa_cpus[0].cpus[i] = 1;
+					sbi->numa_cpus[1].cpus[i] = 0;
+					sbi->cpu_numa_node[i] = 0;
+					cpumask_set_cpu(i, &sbi->numa_cpus[0].cpumask);
+				} else {
+					sbi->numa_cpus[0].cpus[i] = 0;
+					sbi->numa_cpus[1].cpus[i] = 1;
+					sbi->cpu_numa_node[i] = 1;
+					cpumask_set_cpu(i, &sbi->numa_cpus[1].cpumask);
+				}
+			}
+		} else if (sbi->cpus == 32) {
+			for (i = 0; i < sbi->cpus; i++) {
+				if (i < 16) {
+					sbi->numa_cpus[0].cpus[i] = 1;
+					sbi->numa_cpus[1].cpus[i] = 0;
+					sbi->cpu_numa_node[i] = 0;
+					cpumask_set_cpu(i, &sbi->numa_cpus[0].cpumask);
+				} else {
+					sbi->numa_cpus[0].cpus[i] = 0;
+					sbi->numa_cpus[1].cpus[i] = 1;
+					sbi->cpu_numa_node[i] = 1;
+					cpumask_set_cpu(i, &sbi->numa_cpus[1].cpumask);
+				}
+			}
+		}
+	}
 
 	set_opt(sbi->s_mount_opt, MOUNTING);
 

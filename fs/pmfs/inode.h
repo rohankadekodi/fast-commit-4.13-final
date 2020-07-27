@@ -38,6 +38,7 @@ struct pmfs_inode {
 		__le32 rdev;    /* major/minor # */
 	} dev;              /* device inode */
 	u8      huge_aligned_file;  /* is the file hugepage aligned */
+	u8      numa_node; /* which NUMA node is the file data present in */
 	__le32 padding;     /* pad to ensure truncate_item starts 8-byte aligned */
 };
 

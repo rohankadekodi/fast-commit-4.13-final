@@ -611,6 +611,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	void *start_buf = NULL, *end_buf = NULL;
 	__le64 *free_blk_list = NULL;
 	unsigned long num_free_blks = 0;
+	int cpu = pmfs_get_cpuid(sb);
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -629,6 +630,11 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	}
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
+
+	if (pi->numa_node != PMFS_SB(sb)->cpu_numa_node[cpu]) {
+		sched_setaffinity(current->pid, &PMFS_SB(sb)->numa_cpus[pi->numa_node].cpumask);
+	}
+
 	if (pi->huge_aligned_file) {
 		inode_unlock(inode);
 		sb_end_write(inode->i_sb);

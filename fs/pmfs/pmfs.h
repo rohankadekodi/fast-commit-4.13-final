@@ -314,9 +314,24 @@ struct pmfs_sb_info {
 	/* Decide new inode map id */
 	unsigned long map_id;
 
+	/* Number of NUMA nodes */
+	int num_numa_nodes;
+
+	/* Struct to hold NUMA node for each CPU */
+	u8 *cpu_numa_node;
+
+	/* struct to hold cpus for each NUMA node */
+	struct numa_node_cpus *numa_cpus;
+
 	/* Per-CPU free blocks list */
 	struct free_list *free_lists;
 	unsigned long per_list_blocks;
+};
+
+struct numa_node_cpus {
+	int *cpus;
+	int num_cpus;
+	struct cpumask cpumask;
 };
 
 struct pmfs_range_node_lowhigh {
@@ -392,6 +407,13 @@ static inline void *pmfs_get_block(struct super_block *sb, u64 block)
 	struct pmfs_super_block *ps = pmfs_get_super(sb);
 
 	return block ? ((void *)ps + block) : NULL;
+}
+
+static inline int pmfs_get_numa_node(struct super_block *sb, int cpuid)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+
+	return sbi->cpu_numa_node[cpuid];
 }
 
 /* uses CPU instructions to atomically write up to 8 bytes */
