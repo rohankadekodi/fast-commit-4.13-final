@@ -631,11 +631,11 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
 
-	if (pi->numa_node != PMFS_SB(sb)->cpu_numa_node[cpu]) {
+	if (PMFS_SB(sb)->num_numa_nodes > 1 && pi->numa_node != PMFS_SB(sb)->cpu_numa_node[cpu]) {
 		sched_setaffinity(current->pid, &PMFS_SB(sb)->numa_cpus[pi->numa_node].cpumask);
 	}
 
-	if (pi->huge_aligned_file) {
+	if (strong_guarantees && pi->huge_aligned_file) {
 		inode_unlock(inode);
 		sb_end_write(inode->i_sb);
 		return pmfs_xip_cow_file_write(filp, buf, len, ppos);
