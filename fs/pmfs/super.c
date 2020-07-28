@@ -765,7 +765,7 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 			}
 		} else if (sbi->cpus == 32) {
 			for (i = 0; i < sbi->cpus; i++) {
-				if (i < 16) {
+				if (i < 8 || i >= 16 && i < 24) {
 					sbi->numa_cpus[0].cpus[i] = 1;
 					sbi->numa_cpus[1].cpus[i] = 0;
 					sbi->cpu_numa_node[i] = 0;

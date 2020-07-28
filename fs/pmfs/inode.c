@@ -1097,14 +1097,9 @@ inline int pmfs_search_inodetree(struct pmfs_sb_info *sbi,
 static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 {
 	int ret = -EIO;
-
-#if 0
-	if (pmfs_calc_checksum((u8 *)pi, PMFS_INODE_SIZE)) {
-		pmfs_err(inode->i_sb, "checksum error in inode %lx\n",
-			  (u64)inode->i_ino);
-		goto bad_inode;
-	}
-#endif
+	struct pmfs_inode_info *si = PMFS_I(inode);
+	struct pmfs_inode_info_header *sih = &si->header;
+	struct super_block *sb = inode->i_sb;
 
 	inode->i_mode = le16_to_cpu(pi->i_mode);
 	i_uid_write(inode, le32_to_cpu(pi->i_uid));
@@ -1118,6 +1113,8 @@ static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 					 inode->i_ctime.tv_nsec = 0;
 	inode->i_generation = le32_to_cpu(pi->i_generation);
 	pmfs_set_inode_flags(inode, pi);
+
+	pmfs_init_header(sb, sih, __le16_to_cpu(pi->i_mode));
 
 	/* check if the inode is active. */
 	if (inode->i_nlink == 0 &&
@@ -1644,7 +1641,8 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	pi->height = 0;
 	pi->i_dtime = 0;
 	pi->huge_aligned_file = 0;
-	pi->numa_node = pmfs_get_numa_node(sb, map_id);
+	//pi->numa_node = pmfs_get_numa_node(sb, map_id);
+	pi->numa_node = 0;
 	pmfs_memlock_inode(sb, pi);
 
 	sbi->s_free_inodes_count -= 1;

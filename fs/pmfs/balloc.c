@@ -222,9 +222,15 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 				 free_list->num_blocknode_unaligned);
 	}
 
-	if (sbi->cpus == 96 && sbi->num_numa_nodes == 2) {
-		for (i = 24, j = 48; i < 48; i++, j++) {
-			swap_free_lists(sb, i, j);
+	if (sbi->num_numa_nodes == 2) {
+		if (sbi->cpus == 96) {
+			for (i = 24, j = 48; i < 48; i++, j++) {
+				swap_free_lists(sb, i, j);
+			}
+		} else if (sbi->cpus == 32) {
+			for (i = 8, j = 16; i < 16; i++, j++) {
+				swap_free_lists(sb, i, j);
+			}
 		}
 	}
 }
@@ -753,11 +759,19 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 
 	cpuid = blocknr / sbi->per_list_blocks;
 
-	if (sbi->num_numa_nodes == 2 && sbi->cpus == 96) {
-		if (cpuid >= 24 && cpuid < 48) {
-			cpuid += 24;
-		} else if (cpuid >= 48 && cpuid < 72) {
-			cpuid -= 24;
+	if (sbi->num_numa_nodes == 2) {
+		if (sbi->cpus == 96) {
+			if (cpuid >= 24 && cpuid < 48) {
+				cpuid += 24;
+			} else if (cpuid >= 48 && cpuid < 72) {
+				cpuid -= 24;
+			}
+		} else if (sbi->cpus == 32) {
+			if (cpuid >= 8 && cpuid < 16) {
+				cpuid += 8;
+			} else if (cpuid >= 16 && cpuid < 24) {
+				cpuid -= 8;
+			}
 		}
 	}
 
