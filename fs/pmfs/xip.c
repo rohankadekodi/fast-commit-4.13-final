@@ -203,7 +203,7 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 
 		index = pos >> sb->s_blocksize_bits;
 		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 1, &xmem, &xpfn);
-		if (blocks_found < 0) {
+		if (blocks_found <= 0) {
 			break;
 		}
 
@@ -786,7 +786,7 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 			allocated = pmfs_alloc_blocks_weak(trans, inode, iblock,
 						      max_blocks, true, ANY_CPU, 0);
 
-			if (allocated < 0) {
+			if (allocated <= 0) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
 					__func__, __LINE__);
 				goto err;

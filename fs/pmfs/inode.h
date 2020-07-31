@@ -144,6 +144,10 @@ static inline unsigned long __pmfs_find_data_blocks(struct super_block *sb,
 	}
 
 	*bp = local_bp;
+
+	if (num_contiguous_blocks == 0)
+		num_contiguous_blocks = 1;
+
 	return num_contiguous_blocks;
 }
 
