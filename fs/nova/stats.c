@@ -20,7 +20,7 @@
 
 #include "nova.h"
 
-const char *Timingstring[TIMING_NUM] = {
+const char *nova_Timingstring[TIMING_NUM] = {
 	/* Init */
 	"================ Initialization ================",
 	"init",
@@ -161,9 +161,9 @@ const char *Timingstring[TIMING_NUM] = {
 	"append_snapshot_inode",
 };
 
-u64 Timingstats[TIMING_NUM];
+u64 nova_Timingstats[TIMING_NUM];
 DEFINE_PER_CPU(u64[TIMING_NUM], Timingstats_percpu);
-u64 Countstats[TIMING_NUM];
+u64 nova_Countstats[TIMING_NUM];
 DEFINE_PER_CPU(u64[TIMING_NUM], Countstats_percpu);
 u64 IOstats[STATS_NUM];
 DEFINE_PER_CPU(u64[STATS_NUM], IOstats_percpu);
@@ -184,20 +184,20 @@ static void nova_print_alloc_stats(struct super_block *sb)
 
 	nova_info("=========== NOVA allocation stats ===========\n");
 	nova_info("Alloc %llu, alloc steps %llu, average %llu\n",
-		Countstats[new_data_blocks_t], IOstats[alloc_steps],
-		Countstats[new_data_blocks_t] ?
-			IOstats[alloc_steps] / Countstats[new_data_blocks_t]
+		nova_Countstats[new_data_blocks_t], IOstats[alloc_steps],
+		nova_Countstats[new_data_blocks_t] ?
+			IOstats[alloc_steps] / nova_Countstats[new_data_blocks_t]
 			: 0);
-	nova_info("Free %llu\n", Countstats[free_data_t]);
+	nova_info("Free %llu\n", nova_Countstats[free_data_t]);
 	nova_info("Fast GC %llu, check pages %llu, free pages %llu, average %llu\n",
-		Countstats[fast_gc_t], IOstats[fast_checked_pages],
-		IOstats[fast_gc_pages], Countstats[fast_gc_t] ?
-			IOstats[fast_gc_pages] / Countstats[fast_gc_t] : 0);
+		nova_Countstats[fast_gc_t], IOstats[fast_checked_pages],
+		IOstats[fast_gc_pages], nova_Countstats[fast_gc_t] ?
+			IOstats[fast_gc_pages] / nova_Countstats[fast_gc_t] : 0);
 	nova_info("Thorough GC %llu, checked pages %llu, free pages %llu, average %llu\n",
-		Countstats[thorough_gc_t],
+		nova_Countstats[thorough_gc_t],
 		IOstats[thorough_checked_pages], IOstats[thorough_gc_pages],
-		Countstats[thorough_gc_t] ?
-			IOstats[thorough_gc_pages] / Countstats[thorough_gc_t]
+		nova_Countstats[thorough_gc_t] ?
+			IOstats[thorough_gc_pages] / nova_Countstats[thorough_gc_t]
 			: 0);
 
 	for (i = 0; i < sbi->cpus; i++) {
@@ -224,24 +224,24 @@ static void nova_print_IO_stats(struct super_block *sb)
 {
 	nova_info("=========== NOVA I/O stats ===========\n");
 	nova_info("Read %llu, bytes %llu, average %llu\n",
-		Countstats[dax_read_t], IOstats[read_bytes],
-		Countstats[dax_read_t] ?
-			IOstats[read_bytes] / Countstats[dax_read_t] : 0);
+		nova_Countstats[dax_read_t], IOstats[read_bytes],
+		nova_Countstats[dax_read_t] ?
+			IOstats[read_bytes] / nova_Countstats[dax_read_t] : 0);
 	nova_info("COW write %llu, bytes %llu, average %llu, write breaks %llu, average %llu\n",
-		Countstats[do_cow_write_t], IOstats[cow_write_bytes],
-		Countstats[do_cow_write_t] ?
-			IOstats[cow_write_bytes] / Countstats[do_cow_write_t] : 0,
-		IOstats[cow_write_breaks], Countstats[do_cow_write_t] ?
-			IOstats[cow_write_breaks] / Countstats[do_cow_write_t]
+		nova_Countstats[do_cow_write_t], IOstats[cow_write_bytes],
+		nova_Countstats[do_cow_write_t] ?
+			IOstats[cow_write_bytes] / nova_Countstats[do_cow_write_t] : 0,
+		IOstats[cow_write_breaks], nova_Countstats[do_cow_write_t] ?
+			IOstats[cow_write_breaks] / nova_Countstats[do_cow_write_t]
 			: 0);
 	nova_info("Inplace write %llu, bytes %llu, average %llu, write breaks %llu, average %llu\n",
-		Countstats[inplace_write_t], IOstats[inplace_write_bytes],
-		Countstats[inplace_write_t] ?
+		nova_Countstats[inplace_write_t], IOstats[inplace_write_bytes],
+		nova_Countstats[inplace_write_t] ?
 			IOstats[inplace_write_bytes] /
-			Countstats[inplace_write_t] : 0,
-		IOstats[inplace_write_breaks], Countstats[inplace_write_t] ?
+			nova_Countstats[inplace_write_t] : 0,
+		IOstats[inplace_write_breaks], nova_Countstats[inplace_write_t] ?
 			IOstats[inplace_write_breaks] /
-			Countstats[inplace_write_t] : 0);
+			nova_Countstats[inplace_write_t] : 0);
 }
 
 void nova_get_timing_stats(void)
@@ -250,11 +250,11 @@ void nova_get_timing_stats(void)
 	int cpu;
 
 	for (i = 0; i < TIMING_NUM; i++) {
-		Timingstats[i] = 0;
-		Countstats[i] = 0;
+		nova_Timingstats[i] = 0;
+		nova_Countstats[i] = 0;
 		for_each_possible_cpu(cpu) {
-			Timingstats[i] += per_cpu(Timingstats_percpu[i], cpu);
-			Countstats[i] += per_cpu(Countstats_percpu[i], cpu);
+			nova_Timingstats[i] += per_cpu(Timingstats_percpu[i], cpu);
+			nova_Countstats[i] += per_cpu(Countstats_percpu[i], cpu);
 		}
 	}
 }
@@ -281,22 +281,22 @@ void nova_print_timing_stats(struct super_block *sb)
 	nova_info("=========== NOVA kernel timing stats ============\n");
 	for (i = 0; i < TIMING_NUM; i++) {
 		/* Title */
-		if (Timingstring[i][0] == '=') {
-			nova_info("\n%s\n\n", Timingstring[i]);
+		if (nova_Timingstring[i][0] == '=') {
+			nova_info("\n%s\n\n", nova_Timingstring[i]);
 			continue;
 		}
 
-		if (measure_timing || Timingstats[i]) {
+		if (nova_measure_timing || nova_Timingstats[i]) {
 			nova_info("%s: count %llu, timing %llu, average %llu\n",
-				Timingstring[i],
-				Countstats[i],
-				Timingstats[i],
-				Countstats[i] ?
-				Timingstats[i] / Countstats[i] : 0);
+				nova_Timingstring[i],
+				nova_Countstats[i],
+				nova_Timingstats[i],
+				nova_Countstats[i] ?
+				nova_Timingstats[i] / nova_Countstats[i] : 0);
 		} else {
 			nova_info("%s: count %llu\n",
-				Timingstring[i],
-				Countstats[i]);
+				nova_Timingstring[i],
+				nova_Countstats[i]);
 		}
 	}
 
@@ -311,8 +311,8 @@ static void nova_clear_timing_stats(void)
 	int cpu;
 
 	for (i = 0; i < TIMING_NUM; i++) {
-		Countstats[i] = 0;
-		Timingstats[i] = 0;
+		nova_Countstats[i] = 0;
+		nova_Timingstats[i] = 0;
 		for_each_possible_cpu(cpu) {
 			per_cpu(Timingstats_percpu[i], cpu) = 0;
 			per_cpu(Countstats_percpu[i], cpu) = 0;

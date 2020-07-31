@@ -26,8 +26,8 @@
 #include "nova.h"
 #include "inode.h"
 
-unsigned int blk_type_to_shift[NOVA_BLOCK_TYPE_MAX] = {12, 21, 30};
-uint32_t blk_type_to_size[NOVA_BLOCK_TYPE_MAX] = {0x1000, 0x200000, 0x40000000};
+unsigned int nova_blk_type_to_shift[NOVA_BLOCK_TYPE_MAX] = {12, 21, 30};
+uint32_t nova_blk_type_to_size[NOVA_BLOCK_TYPE_MAX] = {0x1000, 0x200000, 0x40000000};
 
 int nova_init_inode_inuse_list(struct super_block *sb)
 {
@@ -196,7 +196,7 @@ int nova_get_inode_address(struct super_block *sb, u64 ino, int version,
 
 	sih.ino = NOVA_INODETABLE_INO;
 	sih.i_blk_type = NOVA_BLOCK_TYPE_2M;
-	data_bits = blk_type_to_shift[sih.i_blk_type];
+	data_bits = nova_blk_type_to_shift[sih.i_blk_type];
 	num_inodes_bits = data_bits - NOVA_INODE_BITS;
 
 	cpuid = ino % sbi->cpus;
@@ -394,7 +394,7 @@ static void nova_truncate_file_blocks(struct inode *inode, loff_t start,
 	struct nova_inode *pi = nova_get_inode(sb, inode);
 	struct nova_inode_info *si = NOVA_I(inode);
 	struct nova_inode_info_header *sih = &si->header;
-	unsigned int data_bits = blk_type_to_shift[sih->i_blk_type];
+	unsigned int data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	unsigned long first_blocknr, last_blocknr;
 	int freed = 0;
 
@@ -831,7 +831,7 @@ unsigned long nova_get_last_blocknr(struct super_block *sb,
 		btype = sih->i_blk_type;
 	}
 
-	data_bits = blk_type_to_shift[btype];
+	data_bits = nova_blk_type_to_shift[btype];
 
 	if (sih->i_size == 0)
 		last_blocknr = 0;
@@ -1374,7 +1374,7 @@ unsigned long nova_find_region(struct inode *inode, loff_t *offset, int hole)
 {
 	struct nova_inode_info *si = NOVA_I(inode);
 	struct nova_inode_info_header *sih = &si->header;
-	unsigned int data_bits = blk_type_to_shift[sih->i_blk_type];
+	unsigned int data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	unsigned long first_blocknr, last_blocknr;
 	unsigned long blocks = 0, offset_in_block;
 	int data_found = 0, hole_found = 0;

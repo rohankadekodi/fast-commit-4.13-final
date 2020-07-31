@@ -34,22 +34,22 @@ static int nova_seq_timing_show(struct seq_file *seq, void *v)
 	seq_puts(seq, "=========== NOVA kernel timing stats ===========\n");
 	for (i = 0; i < TIMING_NUM; i++) {
 		/* Title */
-		if (Timingstring[i][0] == '=') {
-			seq_printf(seq, "\n%s\n\n", Timingstring[i]);
+		if (nova_Timingstring[i][0] == '=') {
+			seq_printf(seq, "\n%s\n\n", nova_Timingstring[i]);
 			continue;
 		}
 
-		if (measure_timing || Timingstats[i]) {
+		if (nova_measure_timing || nova_Timingstats[i]) {
 			seq_printf(seq, "%s: count %llu, timing %llu, average %llu\n",
-				Timingstring[i],
-				Countstats[i],
-				Timingstats[i],
-				Countstats[i] ?
-				Timingstats[i] / Countstats[i] : 0);
+				nova_Timingstring[i],
+				nova_Countstats[i],
+				nova_Timingstats[i],
+				nova_Countstats[i] ?
+				nova_Timingstats[i] / nova_Countstats[i] : 0);
 		} else {
 			seq_printf(seq, "%s: count %llu\n",
-				Timingstring[i],
-				Countstats[i]);
+				nova_Timingstring[i],
+				nova_Countstats[i]);
 		}
 	}
 
@@ -125,55 +125,55 @@ static int nova_seq_IO_show(struct seq_file *seq, void *v)
 		free_data_count, freed_data_pages);
 
 	seq_printf(seq, "Fast GC %llu, check pages %llu, free pages %llu, average %llu\n",
-		Countstats[fast_gc_t], IOstats[fast_checked_pages],
-		IOstats[fast_gc_pages], Countstats[fast_gc_t] ?
-			IOstats[fast_gc_pages] / Countstats[fast_gc_t] : 0);
+		nova_Countstats[fast_gc_t], IOstats[fast_checked_pages],
+		IOstats[fast_gc_pages], nova_Countstats[fast_gc_t] ?
+			IOstats[fast_gc_pages] / nova_Countstats[fast_gc_t] : 0);
 	seq_printf(seq, "Thorough GC %llu, checked pages %llu, free pages %llu, average %llu\n",
-		Countstats[thorough_gc_t],
+		nova_Countstats[thorough_gc_t],
 		IOstats[thorough_checked_pages], IOstats[thorough_gc_pages],
-		Countstats[thorough_gc_t] ?
-			IOstats[thorough_gc_pages] / Countstats[thorough_gc_t]
+		nova_Countstats[thorough_gc_t] ?
+			IOstats[thorough_gc_pages] / nova_Countstats[thorough_gc_t]
 			: 0);
 
 	seq_puts(seq, "\n");
 
 	seq_puts(seq, "================ NOVA I/O stats ================\n\n");
 	seq_printf(seq, "Read %llu, bytes %llu, average %llu\n",
-		Countstats[dax_read_t], IOstats[read_bytes],
-		Countstats[dax_read_t] ?
-			IOstats[read_bytes] / Countstats[dax_read_t] : 0);
+		nova_Countstats[dax_read_t], IOstats[read_bytes],
+		nova_Countstats[dax_read_t] ?
+			IOstats[read_bytes] / nova_Countstats[dax_read_t] : 0);
 	seq_printf(seq, "COW write %llu, bytes %llu, average %llu, write breaks %llu, average %llu\n",
-		Countstats[do_cow_write_t], IOstats[cow_write_bytes],
-		Countstats[do_cow_write_t] ?
-			IOstats[cow_write_bytes] / Countstats[do_cow_write_t] : 0,
-		IOstats[cow_write_breaks], Countstats[do_cow_write_t] ?
-			IOstats[cow_write_breaks] / Countstats[do_cow_write_t]
+		nova_Countstats[do_cow_write_t], IOstats[cow_write_bytes],
+		nova_Countstats[do_cow_write_t] ?
+			IOstats[cow_write_bytes] / nova_Countstats[do_cow_write_t] : 0,
+		IOstats[cow_write_breaks], nova_Countstats[do_cow_write_t] ?
+			IOstats[cow_write_breaks] / nova_Countstats[do_cow_write_t]
 			: 0);
 	seq_printf(seq, "Inplace write %llu, bytes %llu, average %llu, write breaks %llu, average %llu\n",
-		Countstats[inplace_write_t], IOstats[inplace_write_bytes],
-		Countstats[inplace_write_t] ?
+		nova_Countstats[inplace_write_t], IOstats[inplace_write_bytes],
+		nova_Countstats[inplace_write_t] ?
 			IOstats[inplace_write_bytes] /
-			Countstats[inplace_write_t] : 0,
-		IOstats[inplace_write_breaks], Countstats[inplace_write_t] ?
+			nova_Countstats[inplace_write_t] : 0,
+		IOstats[inplace_write_breaks], nova_Countstats[inplace_write_t] ?
 			IOstats[inplace_write_breaks] /
-			Countstats[inplace_write_t] : 0);
+			nova_Countstats[inplace_write_t] : 0);
 	seq_printf(seq, "Inplace write %llu, allocate new blocks %llu\n",
-			Countstats[inplace_write_t],
+			nova_Countstats[inplace_write_t],
 			IOstats[inplace_new_blocks]);
 	seq_printf(seq, "DAX get blocks %llu, allocate new blocks %llu\n",
-			Countstats[dax_get_block_t], IOstats[dax_new_blocks]);
+			nova_Countstats[dax_get_block_t], IOstats[dax_new_blocks]);
 	seq_printf(seq, "Dirty pages %llu\n", IOstats[dirty_pages]);
 	seq_printf(seq, "Protect head %llu, tail %llu\n",
 			IOstats[protect_head], IOstats[protect_tail]);
 	seq_printf(seq, "Block csum parity %llu\n", IOstats[block_csum_parity]);
 	seq_printf(seq, "Page fault %llu, dax cow fault %llu, dax cow fault during snapshot creation %llu\n"
 			"CoW write overlap mmap range %llu, mapping/pfn updated pages %llu\n",
-			Countstats[mmap_fault_t], Countstats[mmap_cow_t],
+			nova_Countstats[mmap_fault_t], nova_Countstats[mmap_cow_t],
 			IOstats[dax_cow_during_snapshot],
 			IOstats[cow_overlap_mmap],
 			IOstats[mapping_updated_pages]);
 	seq_printf(seq, "fsync %llu, fdatasync %llu\n",
-			Countstats[fsync_t], IOstats[fdatasync]);
+			nova_Countstats[fsync_t], IOstats[fdatasync]);
 
 	seq_puts(seq, "\n");
 

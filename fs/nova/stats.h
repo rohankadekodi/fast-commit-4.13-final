@@ -193,10 +193,10 @@ enum stats_category {
 	STATS_NUM,
 };
 
-extern const char *Timingstring[TIMING_NUM];
-extern u64 Timingstats[TIMING_NUM];
+extern const char *nova_Timingstring[TIMING_NUM];
+extern u64 nova_Timingstats[TIMING_NUM];
 DECLARE_PER_CPU(u64[TIMING_NUM], Timingstats_percpu);
-extern u64 Countstats[TIMING_NUM];
+extern u64 nova_Countstats[TIMING_NUM];
 DECLARE_PER_CPU(u64[TIMING_NUM], Countstats_percpu);
 extern u64 IOstats[STATS_NUM];
 DECLARE_PER_CPU(u64[STATS_NUM], IOstats_percpu);
@@ -204,10 +204,10 @@ DECLARE_PER_CPU(u64[STATS_NUM], IOstats_percpu);
 typedef struct timespec timing_t;
 
 #define NOVA_START_TIMING(name, start) \
-	{if (measure_timing) getrawmonotonic(&start); }
+	{if (nova_measure_timing) getrawmonotonic(&start); }
 
 #define NOVA_END_TIMING(name, start) \
-	{if (measure_timing) { \
+	{if (nova_measure_timing) { \
 		timing_t end; \
 		getrawmonotonic(&end); \
 		__this_cpu_add(Timingstats_percpu[name], \

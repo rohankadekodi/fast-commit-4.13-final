@@ -90,7 +90,7 @@ static inline bool arch_has_clflushopt(void)
     return static_cpu_has(X86_FEATURE_CLFLUSHOPT);
 }
 
-extern int support_clwb;
+extern int nova_support_clwb;
 extern int support_clflushopt;
 
 #define _mm_clflush(addr)\
@@ -151,9 +151,9 @@ static inline void emulate_latency_ns(long long ns)
 static inline void nova_flush_buffer(void *buf, uint32_t len, bool fence)
 {
 	uint32_t i;
-	
+
 	len = len + ((unsigned long)(buf) & (CACHELINE_SIZE - 1));
-	if (support_clwb) {
+	if (nova_support_clwb) {
 		for (i = 0; i < len; i += CACHELINE_SIZE) {
 			_mm_clwb(buf + i);
 			//emulate_latency_ns(NVM_LATENCY);
@@ -169,12 +169,7 @@ static inline void nova_flush_buffer(void *buf, uint32_t len, bool fence)
 			//emulate_latency_ns(NVM_LATENCY);
 		}
 	}
-	
-	// Rohan add write delay
-#ifdef CONFIG_LEDGER
-	perfmodel_add_delay(0, len);
-#endif
-	
+
 	/* Do a fence only if asked. We often don't need to do a fence
 	 * immediately after clflush because even if we get context switched
 	 * between clflush and subsequent fence, the context switch operation

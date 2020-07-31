@@ -34,8 +34,14 @@ do_xip_mapping_read(struct address_space *mapping,
 	loff_t isize, pos;
 	size_t copied = 0, error = 0;
 	timing_t memcpy_time;
+	loff_t start_pos = *ppos;
+	loff_t end_pos = start_pos + len - 1;
+	unsigned long start_block = start_pos >> PAGE_SHIFT;
+	unsigned long end_block = end_pos >> PAGE_SHIFT;
+	unsigned long num_blocks = end_block - start_block + 1;
 
 	pos = *ppos;
+
 	index = pos >> PAGE_SHIFT;
 	offset = pos & ~PAGE_MASK;
 
@@ -49,9 +55,9 @@ do_xip_mapping_read(struct address_space *mapping,
 		void *xip_mem;
 		unsigned long xip_pfn;
 		int zero = 0;
+		unsigned long blocks_found;
 
 		/* nr is the maximum number of bytes to copy from this page */
-		nr = PAGE_SIZE;
 		if (index >= end_index) {
 			if (index > end_index)
 				goto out;
@@ -60,19 +66,21 @@ do_xip_mapping_read(struct address_space *mapping,
 				goto out;
 			}
 		}
-		nr = nr - offset;
-		if (nr > len - copied)
-			nr = len - copied;
 
-		error = pmfs_get_xip_mem(mapping, index, 1, 0,
+		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 0,
 					&xip_mem, &xip_pfn);
-		if (unlikely(error < 0)) {
-			if (error == -ENODATA) {
+		if (unlikely(blocks_found < 0)) {
+			if (blocks_found == -ENODATA) {
 				/* sparse */
 				zero = 1;
 			} else
 				goto out;
 		}
+
+		nr = PAGE_SIZE*blocks_found;
+		nr = nr - offset;
+		if (nr > len - copied)
+			nr = len - copied;
 
 		/* If users can be writing to this page using arbitrary
 		 * virtual addresses, take care about potential aliasing
@@ -160,13 +168,8 @@ static inline size_t memcpy_to_nvmm(char *kmem, loff_t offset,
 {
 	size_t copied;
 
-	if (support_clwb) {
-		copied = bytes - __copy_from_user(kmem + offset, buf, bytes);
-		pmfs_flush_buffer(kmem + offset, copied, 0);
-	} else {
-		copied = bytes - __copy_from_user_inatomic_nocache(kmem +
-						offset, buf, bytes);
-	}
+	copied = bytes - __copy_from_user_inatomic_nocache(kmem +
+							   offset, buf, bytes);
 
 	return copied;
 }
@@ -182,6 +185,11 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 	ssize_t     written = 0;
 	struct pmfs_inode *pi;
 	timing_t memcpy_time, write_time;
+	loff_t start_pos = pos;
+	loff_t end_pos = start_pos + count - 1;
+	unsigned long start_block = start_pos >> sb->s_blocksize_bits;
+	unsigned long end_block = end_pos >> sb->s_blocksize_bits;
+	unsigned long num_blocks = end_block - start_block + 1;
 
 	PMFS_START_TIMING(internal_write_t, write_time);
 	pi = pmfs_get_inode(sb, inode->i_ino);
@@ -191,17 +199,19 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 		size_t copied;
 		void *xmem;
 		unsigned long xpfn;
+		unsigned long blocks_found;
+
+		index = pos >> sb->s_blocksize_bits;
+		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 1, &xmem, &xpfn);
+		if (blocks_found < 0) {
+			break;
+		}
 
 		offset = (pos & (sb->s_blocksize - 1)); /* Within page */
-		index = pos >> sb->s_blocksize_bits;
-		bytes = sb->s_blocksize - offset;
+		bytes = (sb->s_blocksize*blocks_found) - offset;
 		if (bytes > count)
 			bytes = count;
 
-		status = pmfs_get_xip_mem(mapping, index, 1, 1, &xmem, &xpfn);
-		if (status < 0) {
-			break;
-		}
 
 		PMFS_START_TIMING(memcpy_w_t, memcpy_time);
 		pmfs_xip_mem_protect(sb, xmem + offset, bytes, 1);
@@ -220,6 +230,7 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 			if (status >= 0) {
 				written += status;
 				count -= status;
+				num_blocks -= blocks_found;
 				pos += status;
 				buf += status;
 			}

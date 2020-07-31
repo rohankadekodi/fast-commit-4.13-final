@@ -306,7 +306,7 @@ next:
 		start_blk += allocated;
 	}
 
-	data_bits = blk_type_to_shift[sih->i_blk_type];
+	data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	sih->i_blocks += (total_blocks << (data_bits - sb->s_blocksize_bits));
 
 	inode->i_blocks = sih->i_blocks;
@@ -569,10 +569,6 @@ skip_verify:
 		if (!zero) {
 			left = __copy_to_user(buf + copied,
 						dax_mem + offset, nr);
-			// Rohan add read delay
-#ifdef CONFIG_LEDGER
-			perfmodel_add_delay(1, nr);
-#endif
 		} else
 			left = __clear_user(buf + copied, nr);
 
@@ -800,7 +796,7 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 			begin_tail = update.curr_entry;
 	}
 
-	data_bits = blk_type_to_shift[sih->i_blk_type];
+	data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	sih->i_blocks += (total_blocks << (data_bits - sb->s_blocksize_bits));
 
 	nova_memunlock_inode(sb, pi);

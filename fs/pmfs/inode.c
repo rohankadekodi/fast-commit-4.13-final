@@ -1114,8 +1114,6 @@ static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 	inode->i_generation = le32_to_cpu(pi->i_generation);
 	pmfs_set_inode_flags(inode, pi);
 
-	pmfs_init_header(sb, sih, __le16_to_cpu(pi->i_mode));
-
 	/* check if the inode is active. */
 	if (inode->i_nlink == 0 &&
 	   (inode->i_mode == 0 || le32_to_cpu(pi->i_dtime))) {
@@ -1124,6 +1122,7 @@ static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 		goto bad_inode;
 	}
 
+	pmfs_init_header(sb, sih, __le16_to_cpu(pi->i_mode));
 	inode->i_blocks = le64_to_cpu(pi->i_blocks);
 	inode->i_mapping->a_ops = &pmfs_aops_xip;
 

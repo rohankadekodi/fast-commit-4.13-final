@@ -1035,7 +1035,7 @@ static int nova_traverse_file_inode_log(struct super_block *sb,
 	u8 type;
 
 	btype = pi->i_blk_type;
-	data_bits = blk_type_to_shift[btype];
+	data_bits = nova_blk_type_to_shift[btype];
 
 	if (metadata_csum)
 		nova_traverse_inode_log(sb, pi, bm, pi->alter_log_head);
@@ -1283,7 +1283,7 @@ static int failure_thread_func(void *data)
 	int count;
 
 	pi = nova_get_inode_by_ino(sb, NOVA_INODETABLE_INO);
-	data_bits = blk_type_to_shift[pi->i_blk_type];
+	data_bits = nova_blk_type_to_shift[pi->i_blk_type];
 	num_inodes_per_page = 1 << (data_bits - NOVA_INODE_BITS);
 
 	ring = &task_rings[cpuid];
@@ -1540,7 +1540,7 @@ int nova_recovery(struct super_block *sb)
 	nova_dbgv("%s\n", __func__);
 
 	/* Always check recovery time */
-	if (measure_timing == 0)
+	if (nova_measure_timing == 0)
 		getrawmonotonic(&start);
 
 	NOVA_START_TIMING(recovery_t, start);
@@ -1578,9 +1578,9 @@ int nova_recovery(struct super_block *sb)
 
 out:
 	NOVA_END_TIMING(recovery_t, start);
-	if (measure_timing == 0) {
+	if (nova_measure_timing == 0) {
 		getrawmonotonic(&end);
-		Timingstats[recovery_t] +=
+		nova_Timingstats[recovery_t] +=
 			(end.tv_sec - start.tv_sec) * 1000000000 +
 			(end.tv_nsec - start.tv_nsec);
 	}

@@ -311,7 +311,7 @@ static void *nova_alloc_pmem_pool(struct super_block *sb,
 	size_t blocksize, blockoff;
 	u8 blocktype = NOVA_BLOCK_TYPE_4K;
 
-	blocksize = blk_type_to_size[blocktype];
+	blocksize = nova_blk_type_to_size[blocktype];
 	num = poolsize / blocksize;
 	if (poolsize % blocksize)
 		num++;
@@ -543,7 +543,7 @@ int nova_test_perf(struct super_block *sb, unsigned int func_id,
 	int id, ret = 0;
 	size_t poolsize = poolmb * 1024 * 1024;
 
-	if (!measure_timing) {
+	if (!nova_measure_timing) {
 		nova_dbg("%s: measure_timing not set!\n", __func__);
 		ret = -EFAULT;
 		goto out;

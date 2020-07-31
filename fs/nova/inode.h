@@ -274,12 +274,12 @@ struct inode_table *nova_get_inode_table(struct super_block *sb,
 static inline unsigned int
 nova_inode_blk_shift(struct nova_inode_info_header *sih)
 {
-	return blk_type_to_shift[sih->i_blk_type];
+	return nova_blk_type_to_shift[sih->i_blk_type];
 }
 
 static inline uint32_t nova_inode_blk_size(struct nova_inode_info_header *sih)
 {
-	return blk_type_to_size[sih->i_blk_type];
+	return nova_blk_type_to_size[sih->i_blk_type];
 }
 
 static inline u64 nova_get_reserved_inode_addr(struct super_block *sb,

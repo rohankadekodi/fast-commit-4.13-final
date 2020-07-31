@@ -23,7 +23,7 @@ static void nova_apply_setattr_entry(struct super_block *sb,
 	struct nova_inode_rebuild *reb,	struct nova_inode_info_header *sih,
 	struct nova_setattr_logentry *entry)
 {
-	unsigned int data_bits = blk_type_to_shift[sih->i_blk_type];
+	unsigned int data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	unsigned long first_blocknr, last_blocknr;
 	loff_t start, end;
 	int freed = 0;
@@ -392,7 +392,7 @@ static int nova_rebuild_file_inode_tree(struct super_block *sb,
 	struct nova_mmap_entry *mmap_entry = NULL;
 	char entry_copy[NOVA_MAX_ENTRY_LEN];
 	struct nova_inode_rebuild rebuild, *reb;
-	unsigned int data_bits = blk_type_to_shift[sih->i_blk_type];
+	unsigned int data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	u64 ino = pi->nova_ino;
 	timing_t rebuild_time;
 	void *addr, *entryc;
@@ -780,7 +780,7 @@ int nova_restore_snapshot_table(struct super_block *sb, int just_init)
 
 	pi = nova_get_reserved_inode(sb, ino);
 	sih = &sbi->snapshot_si->header;
-	data_bits = blk_type_to_shift[sih->i_blk_type];
+	data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	reb = &rebuild;
 	ret = nova_rebuild_inode_start(sb, pi, sih, reb, sih->pi_addr);
 	if (ret)

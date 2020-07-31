@@ -36,7 +36,7 @@ static inline int nova_copy_partial_block(struct super_block *sb,
 	ptr = nova_get_block(sb, (nvmm << PAGE_SHIFT));
 
 	if (ptr != NULL) {
-		if (support_clwb)
+		if (nova_support_clwb)
 			rc = memcpy_mcsafe(kmem + offset, ptr + offset,
 						length);
 		else
@@ -59,7 +59,7 @@ static inline int nova_handle_partial_block(struct super_block *sb,
 	nova_memunlock_block(sb, kmem);
 	if (entry == NULL) {
 		/* Fill zero */
-		if (support_clwb)
+		if (nova_support_clwb)
 			memset(kmem + offset, 0, length);
 		else
 			memcpy_to_pmem_nocache(kmem + offset,
@@ -79,7 +79,7 @@ static inline int nova_handle_partial_block(struct super_block *sb,
 
 	}
 	nova_memlock_block(sb, kmem);
-	if (support_clwb)
+	if (nova_support_clwb)
 		nova_flush_buffer(kmem + offset, length, 0);
 	return 0;
 }
@@ -765,7 +765,7 @@ ssize_t do_nova_inplace_file_write(struct file *filp,
 		}
 	}
 
-	data_bits = blk_type_to_shift[sih->i_blk_type];
+	data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	sih->i_blocks += (new_blocks << (data_bits - sb->s_blocksize_bits));
 
 	inode->i_blocks = sih->i_blocks;
@@ -966,7 +966,7 @@ again:
 	}
 
 	nvmm = blocknr;
-	data_bits = blk_type_to_shift[sih->i_blk_type];
+	data_bits = nova_blk_type_to_shift[sih->i_blk_type];
 	sih->i_blocks += (num_blocks << (data_bits - sb->s_blocksize_bits));
 
 	nova_memunlock_inode(sb, pi);

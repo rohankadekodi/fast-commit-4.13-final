@@ -42,18 +42,18 @@
 #include "super.h"
 #include "inode.h"
 
-int measure_timing;
+int nova_measure_timing;
 int metadata_csum;
 int wprotect;
 int data_csum;
 int data_parity;
 int dram_struct_csum;
-int support_clwb;
+int nova_support_clwb;
 int support_clflushopt;
 int inplace_data_updates;
 
-module_param(measure_timing, int, 0444);
-MODULE_PARM_DESC(measure_timing, "Timing measurement");
+module_param(nova_measure_timing, int, 0444);
+MODULE_PARM_DESC(nova_measure_timing, "Timing measurement");
 
 module_param(metadata_csum, int, 0444);
 MODULE_PARM_DESC(metadata_csum, "Protect metadata structures with replication and checksums");
@@ -635,7 +635,7 @@ static int nova_fill_super(struct super_block *sb, void *data, int silent)
 
 
 	nova_dbg("measure timing %d, metadata checksum %d, inplace update %d, wprotect %d, data checksum %d, data parity %d, DRAM checksum %d\n",
-		measure_timing, metadata_csum,
+		nova_measure_timing, metadata_csum,
 		inplace_data_updates, wprotect,	 data_csum,
 		data_parity, dram_struct_csum);
 
@@ -1192,12 +1192,12 @@ static int __init init_nova_fs(void)
 
 	NOVA_START_TIMING(init_t, init_time);
 	if (arch_has_clwb())
-		support_clwb = 1;
+		nova_support_clwb = 1;
     if (arch_has_clflushopt())
         support_clflushopt = 1;
 
 	nova_info("Arch new instructions support: CLWB %s\n",
-			support_clwb ? "YES" : "NO");
+			nova_support_clwb ? "YES" : "NO");
 	nova_info("Arch new instructions support: CLFLUSHOPT %s\n",
 			support_clflushopt ? "YES" : "NO");
 

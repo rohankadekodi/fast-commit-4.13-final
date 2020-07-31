@@ -572,7 +572,7 @@ copy:
 		csum_addr1 = nova_get_data_csum_addr(sb, strp_nr, 1);
 
 		nova_memunlock_range(sb, csum_addr, NOVA_DATA_CSUM_LEN * 8);
-		if (support_clwb) {
+		if (nova_support_clwb) {
 			memcpy(csum_addr, src_addr, NOVA_DATA_CSUM_LEN * 8);
 			memcpy(csum_addr1, src_addr, NOVA_DATA_CSUM_LEN * 8);
 		} else {
@@ -582,7 +582,7 @@ copy:
 						NOVA_DATA_CSUM_LEN * 8);
 		}
 		nova_memlock_range(sb, csum_addr, NOVA_DATA_CSUM_LEN * 8);
-		if (support_clwb) {
+		if (nova_support_clwb) {
 			nova_flush_buffer(csum_addr,
 					  NOVA_DATA_CSUM_LEN * 8, 0);
 			nova_flush_buffer(csum_addr1,
@@ -680,7 +680,7 @@ int nova_update_pgoff_csum(struct super_block *sb,
 	unsigned long strp_nr;
 	int count;
 
-	count = blk_type_to_size[sih->i_blk_type] / strp_size;
+	count = nova_blk_type_to_size[sih->i_blk_type] / strp_size;
 
 	blockoff = nova_find_nvmm_block(sb, sih, entry, pgoff);
 

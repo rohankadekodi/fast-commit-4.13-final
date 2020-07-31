@@ -140,7 +140,7 @@ extern unsigned int nova_dbgmask;
 #define	FREE_BATCH			(16)
 #define	DEAD_ZONE_BLOCKS		(256)
 
-extern int measure_timing;
+extern int nova_measure_timing;
 extern int metadata_csum;
 extern int unsafe_metadata;
 extern int inplace_data_updates;
@@ -149,8 +149,8 @@ extern int data_csum;
 extern int data_parity;
 extern int dram_struct_csum;
 
-extern unsigned int blk_type_to_shift[NOVA_BLOCK_TYPE_MAX];
-extern unsigned int blk_type_to_size[NOVA_BLOCK_TYPE_MAX];
+extern unsigned int nova_blk_type_to_shift[NOVA_BLOCK_TYPE_MAX];
+extern unsigned int nova_blk_type_to_size[NOVA_BLOCK_TYPE_MAX];
 
 
 
@@ -265,14 +265,6 @@ static inline int memcpy_to_pmem_nocache(void *dst, const void *src,
     size_t len = size + ((unsigned long)(dst) & (CACHELINE_SIZE - 1));
 
 	ret = __copy_from_user_inatomic_nocache(dst, src, size);
-	//    int i;
-	//    for (i = 0; i < len; i += CACHELINE_SIZE)
-	//        emulate_latency_ns(NVM_LATENCY);
-	// Rohan add write delay
-#ifdef CONFIG_LEDGER
-	perfmodel_add_delay(0, len);
-#endif
-	
 	return ret;
 }
 
