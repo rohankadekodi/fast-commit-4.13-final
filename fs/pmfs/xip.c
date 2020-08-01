@@ -39,6 +39,7 @@ do_xip_mapping_read(struct address_space *mapping,
 	unsigned long start_block = start_pos >> PAGE_SHIFT;
 	unsigned long end_block = end_pos >> PAGE_SHIFT;
 	unsigned long num_blocks = end_block - start_block + 1;
+	char *temp_buf = kmalloc(sizeof(char)*len, GFP_KERNEL);
 
 	pos = *ppos;
 
@@ -55,7 +56,7 @@ do_xip_mapping_read(struct address_space *mapping,
 		void *xip_mem;
 		unsigned long xip_pfn;
 		int zero = 0;
-		unsigned long blocks_found;
+		int blocks_found;
 
 		/* nr is the maximum number of bytes to copy from this page */
 		if (index >= end_index) {
@@ -69,7 +70,8 @@ do_xip_mapping_read(struct address_space *mapping,
 
 		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 0,
 					&xip_mem, &xip_pfn);
-		if (unlikely(blocks_found < 0)) {
+		if (unlikely(blocks_found <= 0)) {
+			pmfs_dbg("blocks_found = %d\n", blocks_found);
 			if (blocks_found == -ENODATA) {
 				/* sparse */
 				zero = 1;
@@ -121,6 +123,9 @@ out:
 	if (filp)
 		file_accessed(filp);
 
+	copy_from_user(temp_buf, buf, len);
+	pmfs_dbg("%s: buf = %s. len = %d\n", __func__, temp_buf, len);
+
 	return (copied ? copied : error);
 }
 
@@ -131,7 +136,7 @@ xip_file_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 		return -EFAULT;
 
 	return do_xip_mapping_read(filp->f_mapping, &filp->f_ra, filp,
-			    buf, len, ppos);
+				   buf, len, ppos);
 }
 
 /*
@@ -204,6 +209,7 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 		index = pos >> sb->s_blocksize_bits;
 		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 1, &xmem, &xpfn);
 		if (blocks_found <= 0) {
+			pmfs_dbg("blocks_found = %d\n", blocks_found);
 			break;
 		}
 
@@ -899,6 +905,7 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 	bool new = false, boundary = false;
 	u64 bno;
 	int ret;
+	unsigned long diff_between_devs, byte_offset_in_dax;
 
 	pmfs_dbg_verbose("%s: calling find_and_alloc_blocks. first_block = %lu "
 			 "max_blocks = %lu. length = %lld\n", __func__,
@@ -930,6 +937,14 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 		iomap->blkno = (sector_t)(bno >> 9);//<< (blkbits - 9));
 		iomap->length = (u64)ret << blkbits;
 		iomap->flags |= IOMAP_F_MERGED;
+	}
+
+	if (sbi->num_numa_nodes == 2) {
+		if (bno >= sbi->initsize) {
+			diff_between_devs = (sbi->block_start[1] - sbi->block_end[0]) << PAGE_SHIFT;
+			byte_offset_in_dax = byte_offset_in_dax - diff_between_devs;
+			iomap->blkno = (sector_t)byte_offset_in_dax >> 9;
+		}
 	}
 
 	if (new)

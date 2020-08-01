@@ -101,6 +101,34 @@ static inline int pmfs_has_huge_ioremap(struct super_block *sb)
 	return sbi->s_mount_opt & PMFS_MOUNT_HUGEIOREMAP;
 }
 
+static int pmfs_get_numa_block_info(struct super_block *sb,
+	struct pmfs_sb_info *sbi)
+{
+	void *virt_addr_2 = NULL;
+	pfn_t __pfn_t_2;
+	long size_2;
+	unsigned long num_blocks;
+	unsigned long diff_blocks = 0;
+
+	size_2 = dax_direct_access(sbi->s_dax_dev, sbi->initsize / PAGE_SIZE,
+				   LONG_MAX / PAGE_SIZE,
+				   &virt_addr_2, &__pfn_t_2) * PAGE_SIZE;
+	if (size_2 <= 0) {
+		pmfs_err(sb, "second direct_access failed\n");
+		return -EINVAL;
+	}
+
+	num_blocks = size_2 >> PAGE_SHIFT;
+	diff_blocks = num_blocks % sbi->cpus;
+	num_blocks -= diff_blocks;
+
+	sbi->virt_addr_2 = virt_addr_2;
+	sbi->phys_addr_2 = pfn_t_to_pfn(__pfn_t_2) << PAGE_SHIFT;
+	sbi->initsize_2 = num_blocks << PAGE_SHIFT;
+
+	return 0;
+}
+
 static int pmfs_get_block_info(struct super_block *sb,
 	struct pmfs_sb_info *sbi)
 {
@@ -109,6 +137,8 @@ static int pmfs_get_block_info(struct super_block *sb,
 	pfn_t __pfn_t;
 	long size;
 	int ret;
+	unsigned long num_blocks;
+	unsigned long diff_blocks = 0;
 
 	ret = bdev_dax_supported(sb, PAGE_SIZE);
 	if (ret) {
@@ -132,9 +162,13 @@ static int pmfs_get_block_info(struct super_block *sb,
 		return -EINVAL;
 	}
 
+	num_blocks = size >> PAGE_SHIFT;
+	diff_blocks = num_blocks % sbi->cpus;
+	num_blocks -= diff_blocks;
+
 	sbi->virt_addr = virt_addr;
 	sbi->phys_addr = pfn_t_to_pfn(__pfn_t) << PAGE_SHIFT;
-	sbi->initsize = size;
+	sbi->initsize = num_blocks << PAGE_SHIFT;
 
 	return 0;
 }
@@ -350,7 +384,8 @@ static bool pmfs_check_size (struct super_block *sb, unsigned long size)
 
 
 static struct pmfs_inode *pmfs_init(struct super_block *sb,
-				      unsigned long size)
+				    unsigned long size,
+				    unsigned long size_2)
 {
 	unsigned long blocksize;
 	u64 journal_meta_start, journal_data_start, inode_table_start;
@@ -359,12 +394,26 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
 	struct pmfs_direntry *de;
 	unsigned long blocknr;
+	int idx;
+	unsigned long num_blocks_1;
 
-	pmfs_info("creating an empty pmfs of size %lu\n", size);
-	sbi->block_start = (unsigned long)0;
-	sbi->block_end = ((unsigned long)(size) >> PAGE_SHIFT);
-	sbi->num_free_blocks = ((unsigned long)(size) >> PAGE_SHIFT);
-	sbi->num_blocks = ((unsigned long)(size) >> PAGE_SHIFT);
+	pmfs_info("creating an empty pmfs of size %lu\n", size + size_2);
+
+	sbi->block_start[0] = (unsigned long)0;
+	sbi->block_end[0] = ((unsigned long)(size) >> PAGE_SHIFT);
+	num_blocks_1 = ((unsigned long)size >> PAGE_SHIFT);
+
+	if (sbi->num_numa_nodes == 2) {
+		sbi->block_start[1] = num_blocks_1 +
+			(((unsigned long)sbi->virt_addr_2 -
+			  ((unsigned long)sbi->virt_addr + sbi->initsize)) / PAGE_SIZE);
+
+		sbi->block_end[1] = sbi->block_start[1] +
+			((unsigned long)(size_2) >> PAGE_SHIFT);
+	}
+
+	sbi->num_free_blocks = ((unsigned long)(size + size_2) >> PAGE_SHIFT);
+	sbi->num_blocks = ((unsigned long)(size + size_2) >> PAGE_SHIFT);
 
 	if (!sbi->virt_addr) {
 		printk(KERN_ERR "ioremap of the pmfs image failed(1)\n");
@@ -384,7 +433,7 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 	if (sbi->blocksize && sbi->blocksize != blocksize)
 		sbi->blocksize = blocksize;
 
-	if (!pmfs_check_size(sb, size)) {
+	if (!pmfs_check_size(sb, size + size_2)) {
 		pmfs_dbg("Specified PMFS size too small 0x%lx. Either increase"
 			" PMFS size, or reduce num. of inodes (minimum 32)" 
 			" or journal size (minimum 64KB)\n", size);
@@ -765,7 +814,7 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 			}
 		} else if (sbi->cpus == 32) {
 			for (i = 0; i < sbi->cpus; i++) {
-				if (i < 8 || i >= 16 && i < 24) {
+				if (i < 8 || (i >= 16 && i < 24)) {
 					sbi->numa_cpus[0].cpus[i] = 1;
 					sbi->numa_cpus[1].cpus[i] = 0;
 					sbi->cpu_numa_node[i] = 0;
@@ -780,6 +829,19 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 		}
 	}
 
+	if (sbi->num_numa_nodes == 2)
+		pmfs_get_numa_block_info(sb, sbi);
+	else {
+		sbi->virt_addr_2 = 0;
+		sbi->phys_addr_2 = 0;
+		sbi->initsize_2 = 0;
+	}
+
+	sbi->block_start = kcalloc(sbi->num_numa_nodes, sizeof(unsigned long),
+				   GFP_KERNEL);
+	sbi->block_end = kcalloc(sbi->num_numa_nodes, sizeof(unsigned long),
+				 GFP_KERNEL);
+
 	set_opt(sbi->s_mount_opt, MOUNTING);
 
 	if (pmfs_alloc_block_free_lists(sb)) {
@@ -789,11 +851,11 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 		goto out;
 	}
 
-	pmfs_dbg("Calling pmfs_init");
+	pmfs_dbg_verbose("Calling pmfs_init");
 
 	/* Init a new pmfs instance */
 	if (sbi->s_mount_opt & PMFS_MOUNT_FORMAT) {
-		root_pi = pmfs_init(sb, sbi->initsize);
+		root_pi = pmfs_init(sb, sbi->initsize, sbi->initsize_2);
 		if (IS_ERR(root_pi))
 			goto out;
 		super = pmfs_get_super(sb);
@@ -887,14 +949,12 @@ out:
 int pmfs_statfs(struct dentry *d, struct kstatfs *buf)
 {
 	struct super_block *sb = d->d_sb;
-	unsigned long count = 0;
 	struct pmfs_sb_info *sbi = (struct pmfs_sb_info *)sb->s_fs_info;
 
 	buf->f_type = PMFS_SUPER_MAGIC;
 	buf->f_bsize = sb->s_blocksize;
 
-	count = sbi->block_end;
-	buf->f_blocks = sbi->block_end;
+	buf->f_blocks = sbi->num_blocks;
 	buf->f_bfree = buf->f_bavail = pmfs_count_free_blocks(sb);
 	buf->f_files = (sbi->s_inodes_count);
 	buf->f_ffree = (sbi->s_free_inodes_count);

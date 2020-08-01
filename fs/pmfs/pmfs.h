@@ -258,10 +258,12 @@ struct pmfs_sb_info {
 	struct block_device *s_bdev;
 	struct dax_device *s_dax_dev;
 	phys_addr_t	phys_addr;
+	phys_addr_t     phys_addr_2;
 	void		*virt_addr;
+	void            *virt_addr_2;
 	struct list_head block_inuse_head;
-	unsigned long	block_start;
-	unsigned long	block_end;
+	unsigned long	*block_start;
+	unsigned long	*block_end;
 	unsigned long	num_free_blocks;
 	struct mutex 	s_lock;	/* protects the SB's buffer-head */
 	unsigned long   num_blocks;
@@ -280,6 +282,7 @@ struct pmfs_sb_info {
 	unsigned long	num_inodes;
 	unsigned long	blocksize;
 	unsigned long	initsize;
+	unsigned long   initsize_2;
 	unsigned long	s_mount_opt;
 	kuid_t		uid;    /* Mount uid for root directory */
 	kgid_t		gid;    /* Mount gid for root directory */

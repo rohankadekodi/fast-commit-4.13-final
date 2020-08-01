@@ -94,8 +94,10 @@ static inline uint32_t pmfs_inode_blk_size (struct pmfs_inode *pi)
 static inline u64
 pmfs_get_addr_off(struct pmfs_sb_info *sbi, void *addr)
 {
-	PMFS_ASSERT((addr >= sbi->virt_addr) &&
-			(addr < (sbi->virt_addr + sbi->initsize)));
+	PMFS_ASSERT(((addr >= sbi->virt_addr) &&
+		    (addr < (sbi->virt_addr + sbi->initsize))) ||
+		    ((addr >= sbi->virt_addr_2) &&
+		     (addr < (sbi->virt_addr_2 + sbi->initsize_2))));
 	return (u64)(addr - sbi->virt_addr);
 }
 

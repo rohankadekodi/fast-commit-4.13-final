@@ -61,12 +61,50 @@ static void pmfs_init_free_list(struct super_block *sb,
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
 	unsigned long per_list_blocks;
+	int second_node_cpuid = 0;
+	unsigned long start_block;
+	int effective_index = 0;
+
+	if (sbi->num_numa_nodes == 2) {
+		second_node_cpuid = sbi->cpus / 2;
+	}
 
 	per_list_blocks = sbi->num_blocks / sbi->cpus;
 
-	free_list->block_start = per_list_blocks * index;
+	if (sbi->num_numa_nodes == 2) {
+		if (sbi->cpus == 96 || sbi->cpus == 32) {
+			if (index >= second_node_cpuid) {
+				start_block = sbi->block_start[1];
+				effective_index = index - second_node_cpuid;
+			} else {
+				start_block = 0;
+				effective_index = index;
+			}
+		}
+	} else {
+		start_block = 0;
+		effective_index = index;
+	}
+
+	free_list->block_start = start_block + (per_list_blocks * effective_index);
 	free_list->block_end = free_list->block_start +
 					per_list_blocks - 1;
+
+	if (sbi->num_numa_nodes == 2) {
+		if (index < second_node_cpuid && free_list->block_start >= sbi->block_start[1]) {
+			pmfs_dbg("%s: Wrong NUMA setting: CPU id = %d, free_list->block_start = %lu",
+				 __func__, index, free_list->block_start);
+		}
+
+		if (index == second_node_cpuid - 1) {
+			free_list->block_end = sbi->block_end[0] - 1;
+		}
+
+		if (index == sbi->cpus - 1) {
+			free_list->block_end = sbi->block_end[1] - 1;
+		}
+	}
+
 	if (index == 0)
 		free_list->block_start += sbi->head_reserved_blocks;
 }
@@ -211,15 +249,15 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 			return;
 		}
 
-		pmfs_dbg_verbose("%s: free list %d: block start %lu, end %lu, "
-				 "%lu free blocks. num_aligned_nodes = %lu, "
-				 "num_unaligned_nodes = %lu\n",
-				 __func__, i,
-				 free_list->block_start,
-				 free_list->block_end,
-				 free_list->num_free_blocks,
-				 free_list->num_blocknode_huge_aligned,
-				 free_list->num_blocknode_unaligned);
+		pmfs_dbg("%s: free list %d: block start %lu, end %lu, "
+			 "%lu free blocks. num_aligned_nodes = %lu, "
+			 "num_unaligned_nodes = %lu\n",
+			 __func__, i,
+			 free_list->block_start,
+			 free_list->block_end,
+			 free_list->num_free_blocks,
+			 free_list->num_blocknode_huge_aligned,
+			 free_list->num_blocknode_unaligned);
 	}
 
 	if (sbi->num_numa_nodes == 2) {
@@ -750,6 +788,7 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 	int cpuid;
 	int new_node_used = 0;
 	int ret;
+	unsigned long temp_blocknr;
 
 	if (num <= 0) {
 		pmfs_dbg("%s ERROR: free %d\n", __func__, num);
@@ -757,7 +796,20 @@ int pmfs_free_blocks(struct super_block *sb, unsigned long blocknr,
 		return -EINVAL;
 	}
 
-	cpuid = blocknr / sbi->per_list_blocks;
+	if (sbi->num_numa_nodes == 2) {
+		if (sbi->cpus == 96 || sbi->cpus == 32) {
+			if (blocknr >= sbi->block_start[1]) {
+				temp_blocknr = blocknr -
+					(sbi->block_start[1] - sbi->block_end[0]);
+				cpuid = temp_blocknr / sbi->per_list_blocks;
+			} else {
+				cpuid = blocknr / sbi->per_list_blocks;
+			}
+		} else {
+			cpuid = blocknr / sbi->per_list_blocks;
+		}
+	} else
+		cpuid = blocknr / sbi->per_list_blocks;
 
 	if (sbi->num_numa_nodes == 2) {
 		if (sbi->cpus == 96) {
@@ -1024,5 +1076,5 @@ unsigned long pmfs_count_free_blocks(struct super_block *sb)
 		num_free_blocks += free_list->num_free_blocks;
 	}
 
-	return num_free_blocks; 
+	return num_free_blocks;
 }

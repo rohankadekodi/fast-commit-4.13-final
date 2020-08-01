@@ -128,7 +128,7 @@ unsigned long pmfs_find_data_blocks(struct inode *inode,
 	num_blocks_found = __pmfs_find_data_blocks(sb, pi, blocknr,
 						   bp, max_blocks);
 	pmfs_dbg_verbose("find_data_block %lx, %x %llx blk_p %p blk_shift %x"
-			 " blk_offset %lx\n", file_blocknr, pi->height, bp,
+			 " blk_offset %lx\n", file_blocknr, pi->height, *bp,
 			 pmfs_get_block(sb, *bp), blk_shift, blk_offset);
 
 	if (*bp == 0)
@@ -1640,8 +1640,7 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	pi->height = 0;
 	pi->i_dtime = 0;
 	pi->huge_aligned_file = 0;
-	//pi->numa_node = pmfs_get_numa_node(sb, map_id);
-	pi->numa_node = 0;
+	pi->numa_node = pmfs_get_numa_node(sb, map_id);
 	pmfs_memlock_inode(sb, pi);
 
 	sbi->s_free_inodes_count -= 1;
