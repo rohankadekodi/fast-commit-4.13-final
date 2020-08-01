@@ -1105,6 +1105,9 @@ int pmfs_insert_write_vma(struct vm_area_struct *vma)
 	int insert = 0;
 	int ret;
 	timing_t insert_vma_time;
+	struct pmfs_inode *pi;
+	struct process_numa *proc_numa;
+	int cpu = pmfs_get_cpuid(sb);
 
 
 	if ((vma->vm_flags & flags) != flags)
@@ -1120,6 +1123,19 @@ int pmfs_insert_write_vma(struct vm_area_struct *vma)
 	pmfs_dbg_verbose("Inode %lu insert vma %p, start 0x%lx, end 0x%lx, pgoff %lu\n",
 			 inode->i_ino, vma, vma->vm_start, vma->vm_end,
 			 vma->vm_pgoff);
+
+	pi = pmfs_get_inode(sb, inode->i_ino);
+	if (sbi->num_numa_nodes > 1 && pi->numa_node != sbi->cpu_numa_node[cpu]) {
+		proc_numa = &(sbi->process_numa[current->tgid % sbi->num_parallel_procs]);
+		if (proc_numa->tgid == current->tgid)
+			proc_numa->numa_node = pi->numa_node;
+		else {
+			proc_numa->tgid = current->tgid;
+			proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
+		}
+
+		sched_setaffinity(current->pid, &(sbi->numa_cpus[pi->numa_node].cpumask));
+	}
 
 	inode_lock(inode);
 

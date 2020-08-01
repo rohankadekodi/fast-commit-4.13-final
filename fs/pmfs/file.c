@@ -72,12 +72,15 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 {
 	struct inode *inode = file->f_path.dentry->d_inode;
 	struct super_block *sb = inode->i_sb;
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
 	long ret = 0;
 	unsigned long blocknr, blockoff;
 	int num_blocks, blocksize_mask;
 	struct pmfs_inode *pi;
 	pmfs_transaction_t *trans;
 	loff_t new_size;
+	struct process_numa *proc_numa;
+	int cpu = pmfs_get_cpuid(sb);
 
 	/* We only support the FALLOC_FL_KEEP_SIZE mode */
 	if (mode & ~FALLOC_FL_KEEP_SIZE)
@@ -100,6 +103,17 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 		ret = -EACCES;
 		goto out;
 	}
+
+	if (sbi->num_numa_nodes > 1 && pi->numa_node != sbi->cpu_numa_node[cpu]) {
+		proc_numa = &(sbi->process_numa[current->tgid % sbi->num_parallel_procs]);
+		if (proc_numa->tgid == current->tgid)
+			proc_numa->numa_node = pi->numa_node;
+		else {
+			proc_numa->tgid = current->tgid;
+			proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
+		}
+	}
+
 	trans = pmfs_new_transaction(sb, MAX_INODE_LENTRIES +
 			MAX_METABLOCK_LENTRIES);
 	if (IS_ERR(trans)) {
