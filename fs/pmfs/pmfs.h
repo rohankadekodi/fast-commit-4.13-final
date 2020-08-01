@@ -320,6 +320,12 @@ struct pmfs_sb_info {
 	/* Number of NUMA nodes */
 	int num_numa_nodes;
 
+	/* Current process ID */
+	int curr_tgid;
+
+	/* Current numa node */
+	int curr_numa_node;
+
 	/* Struct to hold NUMA node for each CPU */
 	u8 *cpu_numa_node;
 

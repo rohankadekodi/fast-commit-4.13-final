@@ -1640,7 +1640,12 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	pi->height = 0;
 	pi->i_dtime = 0;
 	pi->huge_aligned_file = 0;
-	pi->numa_node = pmfs_get_numa_node(sb, map_id);
+
+	sbi->curr_tgid = current->tgid;
+	sbi->curr_numa_node = current->tgid % sbi->num_numa_nodes;
+
+	//pi->numa_node = pmfs_get_numa_node(sb, map_id);
+	pi->numa_node = sbi->curr_numa_node;
 	pmfs_memlock_inode(sb, pi);
 
 	sbi->s_free_inodes_count -= 1;
