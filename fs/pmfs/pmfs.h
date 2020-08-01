@@ -320,11 +320,9 @@ struct pmfs_sb_info {
 	/* Number of NUMA nodes */
 	int num_numa_nodes;
 
-	/* Current process ID */
-	int curr_tgid;
-
-	/* Current numa node */
-	int curr_numa_node;
+	/* process -> NUMA node mapping */
+	int num_parallel_procs;
+	struct process_numa *process_numa;
 
 	/* Struct to hold NUMA node for each CPU */
 	u8 *cpu_numa_node;
@@ -335,6 +333,11 @@ struct pmfs_sb_info {
 	/* Per-CPU free blocks list */
 	struct free_list *free_lists;
 	unsigned long per_list_blocks;
+};
+
+struct process_numa {
+	int tgid;
+	int numa_node;
 };
 
 struct numa_node_cpus {

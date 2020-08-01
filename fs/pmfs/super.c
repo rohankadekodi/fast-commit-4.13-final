@@ -838,6 +838,13 @@ static int pmfs_fill_super(struct super_block *sb, void *data, int silent)
 		sbi->initsize_2 = 0;
 	}
 
+	sbi->num_parallel_procs = 20;
+	sbi->process_numa = kcalloc(sbi->num_parallel_procs, sizeof(struct process_numa),
+				    GFP_KERNEL);
+
+	for (i = 0; i < sbi->num_parallel_procs; i++)
+		sbi->process_numa[i].numa_node = -1;
+
 	sbi->block_start = kcalloc(sbi->num_numa_nodes, sizeof(unsigned long),
 				   GFP_KERNEL);
 	sbi->block_end = kcalloc(sbi->num_numa_nodes, sizeof(unsigned long),

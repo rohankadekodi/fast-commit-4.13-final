@@ -625,7 +625,9 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	void *start_buf = NULL, *end_buf = NULL;
 	__le64 *free_blk_list = NULL;
 	unsigned long num_free_blks = 0;
+	struct process_numa *proc_numa;
 	int cpu = pmfs_get_cpuid(sb);
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -645,8 +647,16 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
 
-	if (PMFS_SB(sb)->num_numa_nodes > 1 && pi->numa_node != PMFS_SB(sb)->cpu_numa_node[cpu]) {
-		sched_setaffinity(current->pid, &PMFS_SB(sb)->numa_cpus[pi->numa_node].cpumask);
+	if (sbi->num_numa_nodes > 1 && pi->numa_node != sbi->cpu_numa_node[cpu]) {
+		proc_numa = &(sbi->process_numa[current->tgid % sbi->num_parallel_procs]);
+		if (proc_numa->tgid == current->tgid)
+			proc_numa->numa_node = pi->numa_node;
+		else {
+			proc_numa->tgid = current->tgid;
+			proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
+		}
+
+		sched_setaffinity(current->pid, &(sbi->numa_cpus[pi->numa_node].cpumask));
 	}
 
 	if (strong_guarantees && pi->huge_aligned_file) {
