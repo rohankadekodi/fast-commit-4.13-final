@@ -110,7 +110,8 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 	unsigned long num_blocks;
 	unsigned long diff_blocks = 0;
 
-	size_2 = dax_direct_access(sbi->s_dax_dev, sbi->initsize / PAGE_SIZE,
+	size_2 = dax_direct_access(sbi->s_dax_dev,
+				   ((long)((512*PAGE_SIZE) + sbi->initsize) / PAGE_SIZE),
 				   LONG_MAX / PAGE_SIZE,
 				   &virt_addr_2, &__pfn_t_2) * PAGE_SIZE;
 	if (size_2 <= 0) {

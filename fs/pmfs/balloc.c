@@ -97,11 +97,15 @@ static void pmfs_init_free_list(struct super_block *sb,
 		}
 
 		if (index == second_node_cpuid - 1) {
-			free_list->block_end = sbi->block_end[0] - 1;
+			sbi->block_end[0] = free_list->block_end + 1;
+			sbi->initsize = (sbi->block_end[0] - sbi->block_start[0]) * PAGE_SIZE;
 		}
 
 		if (index == sbi->cpus - 1) {
-			free_list->block_end = sbi->block_end[1] - 1;
+			sbi->block_end[1] = free_list->block_end + 1;
+			sbi->initsize_2 = (sbi->block_end[1] - sbi->block_start[1]) * PAGE_SIZE;
+			sbi->num_blocks = (sbi->initsize + sbi->initsize_2) / PAGE_SIZE;
+			sbi->num_free_blocks = sbi->num_blocks - sbi->head_reserved_blocks;
 		}
 	}
 
