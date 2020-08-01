@@ -39,10 +39,8 @@ do_xip_mapping_read(struct address_space *mapping,
 	unsigned long start_block = start_pos >> PAGE_SHIFT;
 	unsigned long end_block = end_pos >> PAGE_SHIFT;
 	unsigned long num_blocks = end_block - start_block + 1;
-	char *temp_buf = kmalloc(sizeof(char)*len, GFP_KERNEL);
 
 	pos = *ppos;
-
 	index = pos >> PAGE_SHIFT;
 	offset = pos & ~PAGE_MASK;
 
@@ -58,20 +56,10 @@ do_xip_mapping_read(struct address_space *mapping,
 		int zero = 0;
 		int blocks_found;
 
-		/* nr is the maximum number of bytes to copy from this page */
-		if (index >= end_index) {
-			if (index > end_index)
-				goto out;
-			nr = ((isize - 1) & ~PAGE_MASK) + 1;
-			if (nr <= offset) {
-				goto out;
-			}
-		}
-
 		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 0,
-					&xip_mem, &xip_pfn);
+						&xip_mem, &xip_pfn);
+
 		if (unlikely(blocks_found <= 0)) {
-			pmfs_dbg("blocks_found = %d\n", blocks_found);
 			if (blocks_found == -ENODATA) {
 				/* sparse */
 				zero = 1;
@@ -79,7 +67,19 @@ do_xip_mapping_read(struct address_space *mapping,
 				goto out;
 		}
 
-		nr = PAGE_SIZE*blocks_found;
+		/* nr is the maximum number of bytes to copy from this page */
+		if (index + blocks_found >= end_index) {
+			if (index > end_index)
+				goto out;
+
+			nr = ((isize - 1) & ~PAGE_MASK) + 1;
+			nr += (end_index - index) * PAGE_SIZE;
+			if (nr <= offset) {
+				goto out;
+			}
+		} else
+			nr = PAGE_SIZE*blocks_found;
+
 		nr = nr - offset;
 		if (nr > len - copied)
 			nr = len - copied;
@@ -115,6 +115,7 @@ do_xip_mapping_read(struct address_space *mapping,
 		copied += (nr - left);
 		offset += (nr - left);
 		index += offset >> PAGE_SHIFT;
+		num_blocks -= offset >> PAGE_SHIFT;
 		offset &= ~PAGE_MASK;
 	} while (copied < len);
 
@@ -122,9 +123,6 @@ out:
 	*ppos = pos + copied;
 	if (filp)
 		file_accessed(filp);
-
-	copy_from_user(temp_buf, buf, len);
-	pmfs_dbg("%s: buf = %s. len = %d\n", __func__, temp_buf, len);
 
 	return (copied ? copied : error);
 }
@@ -209,7 +207,6 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 		index = pos >> sb->s_blocksize_bits;
 		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 1, &xmem, &xpfn);
 		if (blocks_found <= 0) {
-			pmfs_dbg("blocks_found = %d\n", blocks_found);
 			break;
 		}
 
