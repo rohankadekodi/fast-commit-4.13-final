@@ -1651,11 +1651,9 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 		parent_cpu = parent_task->cpu;
 		parent_numa = pmfs_get_numa_node(sb, parent_cpu);
 		proc_numa->tgid = current->tgid;
-		//proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
 		proc_numa->numa_node = parent_numa;
 	}
 
-	//pi->numa_node = pmfs_get_numa_node(sb, map_id);
 	pi->numa_node = proc_numa->numa_node;
 	pmfs_memlock_inode(sb, pi);
 

@@ -1131,7 +1131,7 @@ int pmfs_insert_write_vma(struct vm_area_struct *vma)
 			proc_numa->numa_node = pi->numa_node;
 		else {
 			proc_numa->tgid = current->tgid;
-			proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
+			proc_numa->numa_node = pi->numa_node;
 		}
 
 		sched_setaffinity(current->pid, &(sbi->numa_cpus[pi->numa_node].cpumask));

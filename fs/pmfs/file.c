@@ -110,7 +110,7 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 			proc_numa->numa_node = pi->numa_node;
 		else {
 			proc_numa->tgid = current->tgid;
-			proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
+			proc_numa->numa_node = pi->numa_node;
 		}
 	}
 
