@@ -647,13 +647,13 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
 
-	if (sbi->num_numa_nodes > 1 && pi->numa_node != sbi->cpu_numa_node[cpu]) {
+	if (sbi->num_numa_nodes > 1 && pi->numa_node != pmfs_get_numa_node(sb, cpu)) {
 		proc_numa = &(sbi->process_numa[current->tgid % sbi->num_parallel_procs]);
 		if (proc_numa->tgid == current->tgid)
 			proc_numa->numa_node = pi->numa_node;
 		else {
 			proc_numa->tgid = current->tgid;
-			proc_numa->numa_node = current->tgid % sbi->num_numa_nodes;
+			proc_numa->numa_node = pi->numa_node;
 		}
 
 		sched_setaffinity(current->pid, &(sbi->numa_cpus[pi->numa_node].cpumask));
