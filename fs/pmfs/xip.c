@@ -454,6 +454,10 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 		goto out;
 	}
 	pos = *ppos;
+
+	if (filp->f_flags & O_APPEND)
+		pos = i_size_read(inode);
+
 	count = len;
 	if (count == 0) {
 		ret = 0;
@@ -639,6 +643,10 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 		goto out;
 	}
 	pos = *ppos;
+
+	if (filp->f_flags & O_APPEND)
+		pos = i_size_read(inode);
+
 	count = len;
 	if (count == 0) {
 		ret = 0;
