@@ -68,7 +68,7 @@ do_xip_mapping_read(struct address_space *mapping,
 		}
 
 		/* nr is the maximum number of bytes to copy from this page */
-		if (index + blocks_found >= end_index) {
+		if (index + blocks_found - 1 >= end_index) {
 			if (index > end_index)
 				goto out;
 
