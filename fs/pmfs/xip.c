@@ -353,7 +353,7 @@ static inline void pmfs_copy_to_edge_blk (struct super_block *sb, struct
  * end-of-block
  */
 static inline void pmfs_copy_from_edge_blk (struct super_block *sb, struct
-				       pmfs_inode *pi, bool new_blk, unsigned long block, size_t blk_off,
+				       pmfs_inode *pi, bool over_blk, unsigned long block, size_t blk_off,
 				       bool is_end_blk, void **buf)
 {
 	void *ptr;
@@ -361,7 +361,7 @@ static inline void pmfs_copy_from_edge_blk (struct super_block *sb, struct
 	unsigned long blknr;
 	u64 bp = 0;
 
-	if (!new_blk) {
+	if (over_blk) {
 		blknr = block >> (pmfs_inode_blk_shift(pi) -
 			sb->s_blocksize_bits);
 		__pmfs_find_data_blocks(sb, pi, blknr, &bp, 1);
@@ -428,6 +428,7 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 	loff_t pos;
 	u64 block;
 	bool new_sblk = false, new_eblk = false;
+	bool over_sblk = false, over_eblk = false;
 	size_t count, offset, eblk_offset, ret;
 	unsigned long start_blk, end_blk, num_blocks, max_logentries;
 	bool same_block;
@@ -509,7 +510,9 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 	if (offset != 0) {
 		pmfs_find_data_blocks(inode, start_blk, &block, 1);
 		if (block == 0)
-		    new_sblk = true;
+			new_sblk = true;
+		else
+			over_sblk = true;
 	}
 
 	eblk_offset = (pos + count) & (pmfs_inode_blk_size(pi) - 1);
@@ -517,10 +520,12 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 		pmfs_find_data_blocks(inode, end_blk, &block, 1);
 		if (block == 0)
 			new_eblk = true;
+		else
+			over_eblk = true;
 	}
 
-	pmfs_copy_from_edge_blk(sb, pi, new_sblk, start_blk, offset, false, &start_buf);
-	pmfs_copy_from_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, &end_buf);
+	pmfs_copy_from_edge_blk(sb, pi, over_sblk, start_blk, offset, false, &start_buf);
+	pmfs_copy_from_edge_blk(sb, pi, over_eblk, end_blk, eblk_offset, true, &end_buf);
 
 	inplace_blk_list = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
 	free_blk_list = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
@@ -538,8 +543,8 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 	pmfs_clear_edge_blk(sb, pi, new_sblk, start_blk, offset, false);
 	pmfs_clear_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true);
 
-	pmfs_copy_to_edge_blk(sb, pi, new_sblk, start_blk, offset, false, start_buf);
-	pmfs_copy_to_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, end_buf);
+	pmfs_copy_to_edge_blk(sb, pi, over_sblk, start_blk, offset, false, start_buf);
+	pmfs_copy_to_edge_blk(sb, pi, over_eblk, end_blk, eblk_offset, true, end_buf);
 
 	if (start_buf)
 		kfree(start_buf);
@@ -632,6 +637,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	struct process_numa *proc_numa;
 	int cpu = pmfs_get_cpuid(sb);
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	bool over_sblk = false, over_eblk = false;
 
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
@@ -716,7 +722,9 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	if (offset != 0) {
 		pmfs_find_data_blocks(inode, start_blk, &block, 1);
 		if (block == 0)
-		    new_sblk = true;
+			new_sblk = true;
+		else
+			over_sblk = true;
 	}
 
 	eblk_offset = (pos + count) & (pmfs_inode_blk_size(pi) - 1);
@@ -724,11 +732,13 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 		pmfs_find_data_blocks(inode, end_blk, &block, 1);
 		if (block == 0)
 			new_eblk = true;
+		else
+			over_eblk = true;
 	}
 
 	if (strong_guarantees) {
-		pmfs_copy_from_edge_blk(sb, pi, new_sblk, start_blk, offset, false, &start_buf);
-		pmfs_copy_from_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, &end_buf);
+		pmfs_copy_from_edge_blk(sb, pi, over_sblk, start_blk, offset, false, &start_buf);
+		pmfs_copy_from_edge_blk(sb, pi, over_eblk, end_blk, eblk_offset, true, &end_buf);
 
 		free_blk_list = (__le64 *) kmalloc(num_blocks * sizeof(__le64), GFP_KERNEL);
 		num_free_blks = 0;
@@ -744,8 +754,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	pmfs_clear_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true);
 
 	if (strong_guarantees) {
-		pmfs_copy_to_edge_blk(sb, pi, new_sblk, start_blk, offset, false, start_buf);
-		pmfs_copy_to_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true, end_buf);
+		pmfs_copy_to_edge_blk(sb, pi, over_sblk, start_blk, offset, false, start_buf);
+		pmfs_copy_to_edge_blk(sb, pi, over_eblk, end_blk, eblk_offset, true, end_buf);
 
 		if (start_buf)
 			kfree(start_buf);
