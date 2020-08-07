@@ -506,7 +506,7 @@ static int pmfs_xip_file_fault(struct vm_fault *vmf)
 	ret = __pmfs_xip_file_fault(vmf->vma, vmf);
 	rcu_read_unlock();
 	PMFS_END_TIMING(mmap_fault_t, fault_time);
-	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end. ret = %d\n", __func__, __LINE__, current->pid, ret);
 	return ret;
 }
 
