@@ -497,7 +497,7 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 		offset = 0;
 	}
 	PMFS_END_TIMING(readdir_t, readdir_time);
-	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return 0;
 }
 
