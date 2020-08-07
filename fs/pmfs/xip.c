@@ -67,18 +67,28 @@ do_xip_mapping_read(struct address_space *mapping,
 				goto out;
 		}
 
-		/* nr is the maximum number of bytes to copy from this page */
-		if (index + blocks_found - 1 >= end_index) {
-			if (index > end_index)
-				goto out;
-
-			nr = ((isize - 1) & ~PAGE_MASK) + 1;
-			nr += (end_index - index) * PAGE_SIZE;
-			if (nr <= offset) {
-				goto out;
+		if (blocks_found == 0) {
+			nr = PAGE_SIZE;
+			if (index >= end_index) {
+				if (index > end_index)
+					goto out;
+				nr = ((isize - 1) & ~PAGE_MASK) + 1;
+				if (nr <= offset)
+					goto out;
 			}
-		} else
-			nr = PAGE_SIZE*blocks_found;
+		} else {
+			if (index + blocks_found - 1 >= end_index) {
+				if (index > end_index)
+					goto out;
+
+				nr = ((isize - 1) & ~PAGE_MASK) + 1;
+				nr += (end_index - index) * PAGE_SIZE;
+				if (nr <= offset) {
+					goto out;
+				}
+			} else
+				nr = PAGE_SIZE*blocks_found;
+		}
 
 		nr = nr - offset;
 		if (nr > len - copied)
