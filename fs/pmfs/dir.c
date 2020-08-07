@@ -455,6 +455,8 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 	ino_t ino;
 	timing_t readdir_time;
 
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
+
 	PMFS_START_TIMING(readdir_t, readdir_time);
 
 	offset = ctx->pos & (sb->s_blocksize - 1);
@@ -485,14 +487,17 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 				ino = le64_to_cpu(de->ino);
 				pi = pmfs_get_inode(sb, ino);
 				if (!dir_emit(ctx, de->name, de->name_len,
-					ino, IF2DT(le16_to_cpu(pi->i_mode))))
+					      ino, IF2DT(le16_to_cpu(pi->i_mode)))) {
+					pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 					return 0;
+				}
 			}
 			ctx->pos += le16_to_cpu(de->de_len);
 		}
 		offset = 0;
 	}
 	PMFS_END_TIMING(readdir_t, readdir_time);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 	return 0;
 }
 

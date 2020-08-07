@@ -51,7 +51,7 @@ static struct kmem_cache *pmfs_range_node_cachep;
 
 /* FIXME: should the following variable be one per PMFS instance? */
 //unsigned int pmfs_dbgmask = 0x00000010;
-unsigned int pmfs_dbgmask = 0;
+unsigned int pmfs_dbgmask = PMFS_DBGMASK_SYSLOG;
 
 #ifdef CONFIG_PMFS_TEST
 static void *first_pmfs_super;

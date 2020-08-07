@@ -79,12 +79,17 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 	pmfs_transaction_t *trans;
 	loff_t new_size;
 
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 	/* We only support the FALLOC_FL_KEEP_SIZE mode */
-	if (mode & ~FALLOC_FL_KEEP_SIZE)
+	if (mode & ~FALLOC_FL_KEEP_SIZE) {
+		pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 		return -EOPNOTSUPP;
+	}
 
-	if (S_ISDIR(inode->i_mode))
+	if (S_ISDIR(inode->i_mode)) {
+		pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 		return -ENODEV;
+	}
 
 	inode_lock(inode);
 
@@ -136,6 +141,7 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 
 out:
 	inode_unlock(inode);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return ret;
 }
 
@@ -144,8 +150,11 @@ static loff_t pmfs_llseek(struct file *file, loff_t offset, int origin)
 	struct inode *inode = file->f_path.dentry->d_inode;
 	int retval;
 
-	if (origin != SEEK_DATA && origin != SEEK_HOLE)
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
+	if (origin != SEEK_DATA && origin != SEEK_HOLE) {
+		pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 		return generic_file_llseek(file, offset, origin);
+	}
 
 	inode_lock(inode);
 	switch (origin) {
@@ -153,6 +162,7 @@ static loff_t pmfs_llseek(struct file *file, loff_t offset, int origin)
 		retval = pmfs_find_region(inode, &offset, 0);
 		if (retval) {
 			inode_unlock(inode);
+			pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 			return retval;
 		}
 		break;
@@ -160,6 +170,7 @@ static loff_t pmfs_llseek(struct file *file, loff_t offset, int origin)
 		retval = pmfs_find_region(inode, &offset, 1);
 		if (retval) {
 			inode_unlock(inode);
+			pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 			return retval;
 		}
 		break;
@@ -168,6 +179,7 @@ static loff_t pmfs_llseek(struct file *file, loff_t offset, int origin)
 	if ((offset < 0 && !(file->f_mode & FMODE_UNSIGNED_OFFSET)) ||
 	    offset > inode->i_sb->s_maxbytes) {
 		inode_unlock(inode);
+		pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 		return -EINVAL;
 	}
 
@@ -177,6 +189,7 @@ static loff_t pmfs_llseek(struct file *file, loff_t offset, int origin)
 	}
 
 	inode_unlock(inode);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return offset;
 }
 
@@ -192,6 +205,7 @@ int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 	loff_t isize;
 	timing_t fsync_time;
 
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 	PMFS_START_TIMING(fsync_t, fsync_time);
 	/* if the file is not mmap'ed, there is no need to do clflushes */
 	if (mapping_mapped(mapping) == 0)
@@ -208,6 +222,7 @@ int pmfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 		pmfs_dbg_verbose("[%s:%d] : (ERR) isize(%llx), start(%llx),"
 			" end(%llx)\n", __func__, __LINE__, isize, start, end);
 		PMFS_END_TIMING(fsync_t, fsync_time);
+		pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 		return -ENODATA;
 	}
 
@@ -248,6 +263,7 @@ persist:
 	PERSISTENT_MARK();
 	PERSISTENT_BARRIER();
 	PMFS_END_TIMING(fsync_t, fsync_time);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return 0;
 }
 
@@ -255,6 +271,7 @@ persist:
 static int pmfs_flush(struct file *file, fl_owner_t id)
 {
 	int ret = 0;
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 	/* if the file was opened for writing, make it persistent.
 	 * TODO: Should we be more smart to check if the file was modified? */
 	if (file->f_mode & FMODE_WRITE) {
@@ -262,6 +279,7 @@ static int pmfs_flush(struct file *file, fl_owner_t id)
 		PERSISTENT_BARRIER();
 	}
 
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return ret;
 }
 

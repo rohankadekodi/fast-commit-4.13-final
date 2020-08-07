@@ -58,6 +58,7 @@ extern unsigned int pmfs_dbgmask;
 #define PMFS_DBGMASK_MMAPVVERBOSE      (0x00000008)
 #define PMFS_DBGMASK_VERBOSE           (0x00000010)
 #define PMFS_DBGMASK_TRANSACTION       (0x00000020)
+#define PMFS_DBGMASK_SYSLOG            (0x00000040)
 
 #define pmfs_dbg_mmaphuge(s, args ...)		 \
 	((pmfs_dbgmask & PMFS_DBGMASK_MMAPHUGE) ? pmfs_dbg(s, args) : 0)
@@ -70,6 +71,8 @@ extern unsigned int pmfs_dbgmask;
 
 #define pmfs_dbg_verbose(s, args ...)		 \
 	((pmfs_dbgmask & PMFS_DBGMASK_VERBOSE) ? pmfs_dbg(s, ##args) : 0)
+#define pmfs_dbg_syslog(s, args ...)		 \
+	((pmfs_dbgmask & PMFS_DBGMASK_SYSLOG) ? pmfs_dbg(s, ##args) : 0)
 #define pmfs_dbg_trans(s, args ...)		 \
 	((pmfs_dbgmask & PMFS_DBGMASK_TRANSACTION) ? pmfs_dbg(s, ##args) : 0)
 

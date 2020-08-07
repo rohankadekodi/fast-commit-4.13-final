@@ -136,12 +136,14 @@ ssize_t pmfs_xip_file_read(struct file *filp, char __user *buf,
 {
 	ssize_t res;
 	timing_t xip_read_time;
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 
 	PMFS_START_TIMING(xip_read_t, xip_read_time);
 //	rcu_read_lock();
 	res = xip_file_read(filp, buf, len, ppos);
 //	rcu_read_unlock();
 	PMFS_END_TIMING(xip_read_t, xip_read_time);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return res;
 }
 
@@ -345,6 +347,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	bool same_block;
 	timing_t xip_write_time, xip_write_fast_time;
 
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
+
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
 	sb_start_write(inode->i_sb);
@@ -436,6 +440,7 @@ out:
 	inode_unlock(inode);
 	sb_end_write(inode->i_sb);
 	PMFS_END_TIMING(xip_write_t, xip_write_time);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return ret;
 }
 
@@ -616,6 +621,7 @@ static const struct vm_operations_struct pmfs_xip_vm_ops = {
 int pmfs_xip_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
 //	BUG_ON(!file->f_mapping->a_ops->get_xip_mem);
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: start\n", __func__, __LINE__, current->pid);
 
 	file_accessed(file);
 
@@ -628,5 +634,6 @@ int pmfs_xip_file_mmap(struct file *file, struct vm_area_struct *vma)
 			__LINE__, vma->vm_start, vma->vm_end,
 			vma->vm_flags, pgprot_val(vma->vm_page_prot));
 
+	pmfs_dbg_syslog("[%s, %d, PID(%d)]: end\n", __func__, __LINE__, current->pid);
 	return 0;
 }
