@@ -60,7 +60,7 @@ do_xip_mapping_read(struct address_space *mapping,
 						&xip_mem, &xip_pfn);
 
 		if (unlikely(blocks_found <= 0)) {
-			if (blocks_found == -ENODATA) {
+			if (blocks_found == -ENODATA || blocks_found == 0) {
 				/* sparse */
 				zero = 1;
 			} else
@@ -328,7 +328,7 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
  * end-of-block
  */
 static inline void pmfs_copy_to_edge_blk (struct super_block *sb, struct
-				       pmfs_inode *pi, bool new_blk, unsigned long block, size_t blk_off,
+				       pmfs_inode *pi, bool over_blk, unsigned long block, size_t blk_off,
 				       bool is_end_blk, void *buf)
 {
 	void *ptr;
@@ -336,7 +336,7 @@ static inline void pmfs_copy_to_edge_blk (struct super_block *sb, struct
 	unsigned long blknr;
 	u64 bp = 0;
 
-	if (!new_blk && buf != NULL) {
+	if (over_blk) {
 		blknr = block >> (pmfs_inode_blk_shift(pi) -
 			sb->s_blocksize_bits);
 		__pmfs_find_data_blocks(sb, pi, blknr, &bp, 1);
