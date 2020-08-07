@@ -139,6 +139,7 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 	struct dentry *dentry, struct inode *inode,
 	struct pmfs_direntry *de, u8 *blk_base,  struct pmfs_inode *pidir)
 {
+#if 0
 	struct inode *dir = dentry->d_parent->d_inode;
 	const char *name = dentry->d_name.name;
 	int namelen = dentry->d_name.len;
@@ -207,6 +208,97 @@ static int pmfs_add_dirent_to_buf(pmfs_transaction_t *trans,
 
 	pmfs_insert_dir_tree(dir->i_sb, sih, name, namelen, de);
 	return 0;
+#endif
+
+	struct inode *dir = dentry->d_parent->d_inode;
+	const char *name = dentry->d_name.name;
+	int namelen = dentry->d_name.len;
+	unsigned short reclen;
+	int nlen, rlen;
+	char *top;
+	struct pmfs_inode_info *si = PMFS_I(dir);
+	struct pmfs_inode_info_header *sih = &si->header;
+
+	/*
+	 * This portion sweeps through all the directory
+	 * entries to find a free slot to insert this new
+	 * directory entry. Needs to be optimized
+	 */
+	reclen = PMFS_DIR_REC_LEN(namelen);
+
+	if (!de) {
+		top = blk_base + dir->i_sb->s_blocksize - reclen;
+
+		if (sih->last_dentry == NULL) {
+			return -ENOSPC;
+		}
+
+		de = (struct pmfs_direntry *)(sih->last_dentry);
+		rlen = le16_to_cpu(de->de_len);
+		if (de->ino) {
+			nlen = PMFS_DIR_REC_LEN(de->name_len);
+			if (rlen - nlen >= reclen) {
+				goto found_free_slot;
+			}
+			else {
+				return -ENOSPC;
+			}
+		}
+
+		if ((char *)de > top)
+			return -ENOSPC;
+
+		pmfs_memunlock_block(dir->i_sb, blk_base);
+		de->de_len = blk_base + dir->i_sb->s_blocksize - (u8*)de;
+		pmfs_memlock_block(dir->i_sb, blk_base);
+	}
+
+ found_free_slot:
+	if (de->ino) {
+		struct pmfs_direntry *de1;
+		pmfs_add_logentry(dir->i_sb, trans, &de->de_len,
+				  sizeof(de->de_len), LE_DATA);
+		nlen = PMFS_DIR_REC_LEN(de->name_len);
+		de1 = (struct pmfs_direntry *)((char *) de + nlen);
+		pmfs_memunlock_block(dir->i_sb, blk_base);
+		de1->de_len = blk_base + dir->i_sb->s_blocksize - (u8*)de1;
+		de->de_len = cpu_to_le16(nlen);
+		pmfs_memlock_block(dir->i_sb, blk_base);
+		de = de1;
+	} else {
+		pmfs_add_logentry(dir->i_sb, trans, &de->ino,
+				  sizeof(de->ino), LE_DATA);
+	}
+
+	pmfs_memunlock_block(dir->i_sb, blk_base);
+	if (inode) {
+		de->ino = cpu_to_le64(inode->i_ino);
+	} else {
+		de->ino = 0;
+	}
+
+	sih->last_dentry = (struct pmfs_direntry *) (de);
+
+	de->name_len = namelen;
+	memcpy(de->name, name, namelen);
+	pmfs_memlock_block(dir->i_sb, blk_base);
+	pmfs_flush_buffer(de, reclen, false);
+	/*
+	 * XXX shouldn't update any times until successful
+	 * completion of syscall, but too many callers depend
+	 * on this.
+	 */
+	dir->i_mtime = dir->i_ctime = current_time(dir);
+	/*dir->i_version++; */
+
+	pmfs_memunlock_inode(dir->i_sb, pidir);
+	pidir->i_mtime = cpu_to_le32(dir->i_mtime.tv_sec);
+	pidir->i_ctime = cpu_to_le32(dir->i_ctime.tv_sec);
+	pmfs_memlock_inode(dir->i_sb, pidir);
+
+	pmfs_insert_dir_tree(dir->i_sb, sih, name, namelen, de);
+	return 0;
+
 }
 
 /* adds a directory entry pointing to the inode. assumes the inode has
@@ -264,7 +356,7 @@ int pmfs_add_entry(pmfs_transaction_t *trans, struct dentry *dentry,
 	de = (struct pmfs_direntry *)blk_base;
 	pmfs_memunlock_block(sb, blk_base);
 	de->ino = 0;
-	de->de_len = PMFS_DIR_REC_LEN(dentry->d_name.len);
+	de->de_len = dir->i_sb->s_blocksize;
 	pmfs_memlock_block(sb, blk_base);
 	/* Since this is a new block, no need to log changes to this block */
 	retval = pmfs_add_dirent_to_buf(NULL, dentry, inode, de, blk_base,
@@ -377,34 +469,10 @@ static int pmfs_readdir(struct file *file, struct dir_context *ctx)
 			ctx->pos += sb->s_blocksize - offset;
 			continue;
 		}
-#if 0
-		if (file->f_version != inode->i_version) {
-			for (i = 0; i < sb->s_blocksize && i < offset; ) {
-				de = (struct pmfs_direntry *)(blk_base + i);
-				/* It's too expensive to do a full
-				 * dirent test each time round this
-				 * loop, but we do have to test at
-				 * least that it is non-zero.  A
-				 * failure will be detected in the
-				 * dirent test below. */
-				if (le16_to_cpu(de->de_len) <
-				    PMFS_DIR_REC_LEN(1))
-					break;
-				i += le16_to_cpu(de->de_len);
-			}
-			offset = i;
-			ctx->pos =
-				(ctx->pos & ~(sb->s_blocksize - 1)) | offset;
-			file->f_version = inode->i_version;
-		}
-#endif
+
 		while (ctx->pos < inode->i_size
 		       && offset < sb->s_blocksize) {
 			de = (struct pmfs_direntry *)(blk_base + offset);
-			if (de->de_len < PMFS_DIR_REC_LEN(1)) {
-				ctx->pos = ALIGN(ctx->pos, sb->s_blocksize);
-				break;
-			}
 
 			if (!pmfs_check_dir_entry("pmfs_readdir", inode, de,
 						   blk_base, offset)) {
