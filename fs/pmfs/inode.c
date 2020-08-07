@@ -956,6 +956,9 @@ inline int pmfs_search_inodetree(struct pmfs_sb_info *sbi,
 static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 {
 	int ret = -EIO;
+	struct pmfs_inode_info *si = PMFS_I(inode);
+	struct pmfs_inode_info_header *sih = &si->header;
+	struct super_block *sb = inode->i_sb;
 
 #if 0
 	if (pmfs_calc_checksum((u8 *)pi, PMFS_INODE_SIZE)) {
@@ -986,6 +989,7 @@ static int pmfs_read_inode(struct inode *inode, struct pmfs_inode *pi)
 		goto bad_inode;
 	}
 
+	pmfs_init_header(sb, sih, __le16_to_cpu(inode->i_mode));
 	inode->i_blocks = le64_to_cpu(pi->i_blocks);
 	inode->i_mapping->a_ops = &pmfs_aops_xip;
 
