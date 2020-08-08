@@ -459,7 +459,8 @@ static long pmfs_alloc_blocks_in_free_list(struct super_block *sb,
 	bool found_hugeblock = 0;
 	unsigned long step = 0;
 
-	if ((!free_list->first_node_unaligned && !free_list->first_node_huge_aligned) ||
+	if ((!free_list->first_node_unaligned &&
+	     !free_list->first_node_huge_aligned) ||
 	    free_list->num_free_blocks == 0) {
 		pmfs_dbg("%s: Can't alloc. free_list->first_node_unaligned=0x%p "
 				 "free_list->first_node_aligned=0x%p "
@@ -1030,7 +1031,8 @@ retry:
 		pmfs_dbg_verbose("%s: cpu %d, free_blocks %lu, required %lu, "
 			  "blocknode %lu\n",
 			  __func__, cpuid, free_list->num_free_blocks,
-			  num_blocks, free_list->num_blocknode_unaligned + free_list->num_blocknode_huge_aligned);
+			  num_blocks, free_list->num_blocknode_unaligned +
+				 free_list->num_blocknode_huge_aligned);
 
 		if (retried >= 2)
 			/* Allocate anyway */

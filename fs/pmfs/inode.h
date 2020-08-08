@@ -130,12 +130,15 @@ static inline unsigned long __pmfs_find_data_blocks(struct super_block *sb,
 
 		if (height == 1) {
 			/* Find the contiguous extent */
-			num_contiguous_blocks++;
 			cur_bp = local_bp;
 			cur_idx = idx;
-			while (num_contiguous_blocks < max_blocks) {
-				if (level_ptr[++cur_idx] != cur_bp + PAGE_SIZE)
+
+			while (num_contiguous_blocks < max_blocks &&
+			       cur_idx < 512) {
+				if (level_ptr[cur_idx] != cur_bp)
 					break;
+
+				cur_idx++;
 				cur_bp += PAGE_SIZE;
 				num_contiguous_blocks++;
 			}

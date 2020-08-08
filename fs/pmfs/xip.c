@@ -202,7 +202,6 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 	loff_t end_pos = start_pos + count - 1;
 	unsigned long start_block = start_pos >> sb->s_blocksize_bits;
 	unsigned long end_block = end_pos >> sb->s_blocksize_bits;
-	unsigned long num_blocks = end_block - start_block + 1;
 
 	PMFS_START_TIMING(internal_write_t, write_time);
 	pi = pmfs_get_inode(sb, inode->i_ino);
@@ -212,10 +211,15 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 		size_t copied;
 		void *xmem;
 		unsigned long xpfn;
-		unsigned long blocks_found;
+		int blocks_found;
+		unsigned long num_blocks;
 
 		index = pos >> sb->s_blocksize_bits;
-		blocks_found = pmfs_get_xip_mem(mapping, index, num_blocks, 1, &xmem, &xpfn);
+		num_blocks = end_block - index + 1;
+
+		blocks_found = pmfs_get_xip_mem(mapping, index,
+						num_blocks, 1,
+						&xmem, &xpfn);
 		if (blocks_found <= 0) {
 			break;
 		}
@@ -243,7 +247,6 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 			if (status >= 0) {
 				written += status;
 				count -= status;
-				num_blocks -= blocks_found;
 				pos += status;
 				buf += status;
 			}
@@ -809,12 +812,13 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 	u64 block;
 	pmfs_transaction_t *trans;
 	struct pmfs_inode *pi;
-	unsigned long blocks_found = 0;
-	int allocated = 0;
+	int blocks_found = 0;
 
-	blocks_found = pmfs_find_data_blocks(inode, iblock, &block, max_blocks);
+	blocks_found = pmfs_find_data_blocks(inode,
+					     iblock, &block,
+					     max_blocks);
 
-	if (!block) {
+	if (blocks_found == 0) {
 		struct super_block *sb = inode->i_sb;
 		if (!create) {
 			err = -ENODATA;
@@ -824,10 +828,12 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 		pi = pmfs_get_inode(sb, inode->i_ino);
 		trans = pmfs_current_transaction();
 		if (trans) {
-			allocated = pmfs_alloc_blocks_weak(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU, 0);
+			err = pmfs_alloc_blocks_weak(trans, inode,
+						     iblock,
+						     max_blocks,
+						     true, ANY_CPU, 0);
 
-			if (allocated <= 0) {
+			if (err) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
 					__func__, __LINE__);
 				goto err;
@@ -844,15 +850,17 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 			inode_lock(inode);
 
 			pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY,
-				LE_DATA);
-			allocated = pmfs_alloc_blocks_weak(trans, inode, iblock,
-						      max_blocks, true, ANY_CPU, 0);
+					  LE_DATA);
+			err = pmfs_alloc_blocks_weak(trans, inode,
+						     iblock,
+						     max_blocks,
+						     true, ANY_CPU, 0);
 
 			pmfs_commit_transaction(sb, trans);
 
 			inode_unlock(inode);
 			rcu_read_lock();
-			if (allocated < 0) {
+			if (err) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",
 					__func__, __LINE__);
 				goto err;
@@ -861,8 +869,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 
 		blocks_found = pmfs_find_data_blocks(inode, iblock, &block, max_blocks);
 
-		if (!block) {
-			pmfs_dbg("[%s:%d] But alloc didn't fail!\n",
+		if (blocks_found == 0) {
+			pmfs_dbg_verbose("[%s:%d] But alloc didn't fail!\n",
 				  __func__, __LINE__);
 			err = -ENODATA;
 			goto err;
@@ -872,10 +880,10 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 	pmfs_dbg_verbose("iblock 0x%lx allocated_block 0x%llx\n", iblock,
 			 block);
 
+ set_block:
 	*bno = block;
 	err = 0;
-
-err:
+ err:
 	return blocks_found;
 }
 
@@ -952,7 +960,7 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 				   &bno,
 				   flags & IOMAP_WRITE);
 
-	if (ret < 0) {
+	if (ret <= 0) {
 		pmfs_dbg("%s: pmfs_dax_get_blocks failed %d", __func__, ret);
 		pmfs_dbg("%s: returning %d\n", __func__, ret);
 		return ret;
@@ -1021,7 +1029,7 @@ static inline int __pmfs_get_block(struct inode *inode, pgoff_t pgoff,
 	int rc = 0;
 
 	rc = pmfs_find_and_alloc_blocks(inode, (sector_t)pgoff, max_blocks, result,
-					 create);
+					create);
 	return rc;
 }
 
@@ -1052,7 +1060,7 @@ int pmfs_get_xip_mem(struct address_space *mapping, pgoff_t pgoff,
 	struct inode *inode = mapping->host;
 
 	rc = __pmfs_get_block(inode, pgoff, max_blocks, create, &block);
-	if (rc < 0) {
+	if (rc <= 0) {
 		pmfs_dbg1("[%s:%d] rc(%d), sb->physaddr(0x%llx), block(0x%llx),"
 			" pgoff(0x%lx), flag(0x%x), PFN(0x%lx)\n", __func__,
 			__LINE__, rc, PMFS_SB(inode->i_sb)->phys_addr,

@@ -760,6 +760,7 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 						free_blk_list[*num_free_blks] = node[j];
 						(*num_free_blks) += 1;
 					}
+
 					node[j] = cpu_to_le64(pmfs_get_block_off(sb,
 										 blocknr,
 										 pi->i_blk_type));
@@ -769,7 +770,8 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 				if (free_blk_list != NULL && (*num_free_blks != 0)) {
 					unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
 					pmfs_memunlock_inode(sb, pi);
-					pi->i_blocks -= ((*num_free_blks) << (data_bits - sb->s_blocksize_bits));
+					pi->i_blocks -= ((*num_free_blks) <<
+							 (data_bits - sb->s_blocksize_bits));
 					pmfs_memunlock_inode(sb, pi);
 				}
 				pmfs_memlock_block(sb, node);
