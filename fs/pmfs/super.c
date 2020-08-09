@@ -114,13 +114,15 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 	unsigned long diff_blocks = 0;
 
 	size_2 = dax_direct_access(sbi->s_dax_dev,
-				   ((long)((PAGE_SIZE * 512) + sbi->initsize) / PAGE_SIZE),
+				   ((long)(sbi->pmem_size) / PAGE_SIZE),
 				   LONG_MAX / PAGE_SIZE,
 				   &virt_addr_2, &__pfn_t_2) * PAGE_SIZE;
 	if (size_2 <= 0) {
 		pmfs_err(sb, "second direct_access failed\n");
 		return -EINVAL;
 	}
+
+	sbi->pmem_size_2 = size_2;
 
 	num_blocks = size_2 >> PAGE_SHIFT;
 	diff_blocks = num_blocks % sbi->cpus;
@@ -131,7 +133,6 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 		(unsigned long)(virt_addr_2)++;
 		(unsigned long)(phys_addr_2)++;
 	}
-
 
 	sbi->virt_addr_2 = virt_addr_2;
 	sbi->phys_addr_2 = phys_addr_2;
@@ -184,6 +185,8 @@ static int pmfs_get_block_info(struct super_block *sb,
 		pmfs_err(sb, "direct_access failed\n");
 		return -EINVAL;
 	}
+
+	sbi->pmem_size = size;
 
 	num_blocks = size >> PAGE_SHIFT;
 	diff_blocks = num_blocks % sbi->cpus;

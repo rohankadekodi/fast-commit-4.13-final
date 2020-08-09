@@ -283,6 +283,8 @@ struct pmfs_sb_info {
 	unsigned long	blocksize;
 	unsigned long	initsize;
 	unsigned long   initsize_2;
+	unsigned long   pmem_size;
+	unsigned long   pmem_size_2;
 	unsigned long	s_mount_opt;
 	kuid_t		uid;    /* Mount uid for root directory */
 	kgid_t		gid;    /* Mount gid for root directory */

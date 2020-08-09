@@ -949,6 +949,7 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 	u64 bno;
 	int ret;
 	unsigned long diff_between_devs, byte_offset_in_dax;
+	unsigned long first_virt_end, second_virt_start;
 
 	pmfs_dbg_verbose("%s: calling find_and_alloc_blocks. first_block = %lu "
 			 "max_blocks = %lu. length = %lld\n", __func__,
@@ -982,10 +983,15 @@ int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 		iomap->flags |= IOMAP_F_MERGED;
 	}
 
+
 	if (sbi->num_numa_nodes == 2) {
-		if (bno >= sbi->initsize) {
-			diff_between_devs = (sbi->block_start[1] - sbi->block_end[0]) << PAGE_SHIFT;
-			byte_offset_in_dax = byte_offset_in_dax - diff_between_devs;
+		byte_offset_in_dax = bno;
+		if (byte_offset_in_dax >= sbi->initsize) {
+			first_virt_end = (unsigned long) sbi->virt_addr +
+				(unsigned long) sbi->pmem_size;
+			second_virt_start = (unsigned long) sbi->virt_addr_2;
+			diff_between_devs = second_virt_start - first_virt_end;
+			byte_offset_in_dax -= diff_between_devs;
 			iomap->blkno = (sector_t)byte_offset_in_dax >> 9;
 		}
 	}
