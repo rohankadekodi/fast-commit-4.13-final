@@ -751,7 +751,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 			over_eblk = true;
 	}
 
-	if (strong_guarantees) {
+	if (strong_guarantees && pos < i_size_read(inode)) {
 		pmfs_copy_from_edge_blk(sb, pi, over_sblk, start_blk, offset, false, &start_buf);
 		pmfs_copy_from_edge_blk(sb, pi, over_eblk, end_blk, eblk_offset, true, &end_buf);
 
@@ -768,7 +768,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	pmfs_clear_edge_blk(sb, pi, new_sblk, start_blk, offset, false);
 	pmfs_clear_edge_blk(sb, pi, new_eblk, end_blk, eblk_offset, true);
 
-	if (strong_guarantees) {
+	if (strong_guarantees && pos < i_size_read(inode)) {
 		pmfs_copy_to_edge_blk(sb, pi, over_sblk, start_blk, offset, false, start_buf);
 		pmfs_copy_to_edge_blk(sb, pi, over_eblk, end_blk, eblk_offset, true, end_buf);
 
