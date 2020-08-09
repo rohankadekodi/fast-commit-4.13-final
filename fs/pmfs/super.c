@@ -107,6 +107,7 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 	struct pmfs_sb_info *sbi)
 {
 	void *virt_addr_2 = NULL;
+	phys_addr_t phys_addr_2;
 	pfn_t __pfn_t_2;
 	long size_2;
 	unsigned long num_blocks;
@@ -124,21 +125,22 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 	num_blocks = size_2 >> PAGE_SHIFT;
 	diff_blocks = num_blocks % sbi->cpus;
 	num_blocks -= diff_blocks;
+	phys_addr_2 = pfn_t_to_pfn(__pfn_t_2) << PAGE_SHIFT;
 
-	while ((u64)virt_addr2 % HUGEPAGE_SIZE != 0) {
-		virt_addr_2++;
-		phys_addr_2++;
+	while ((unsigned long)virt_addr_2 % HUGEPAGE_SIZE != 0) {
+		(unsigned long)(virt_addr_2)++;
+		(unsigned long)(phys_addr_2)++;
 	}
 
 
 	sbi->virt_addr_2 = virt_addr_2;
-	sbi->phys_addr_2 = pfn_t_to_pfn(__pfn_t_2) << PAGE_SHIFT;
+	sbi->phys_addr_2 = phys_addr_2;
 	sbi->initsize_2 = num_blocks << PAGE_SHIFT;
 
-	if (sbi->virt_addr % HUGEPAGE_SIZE != 0 ||
-	    sbi->phys_addr % HUGEPAGE_SIZE != 0 ||
-	    sbi->virt_addr_2 % HUGEPAGE_SIZE != 0 ||
-	    sbi->phys_addr_2 % HUGEPAGE_SIZE != 0) {
+	if ((unsigned long)sbi->virt_addr % HUGEPAGE_SIZE != 0 ||
+	    (unsigned long)sbi->phys_addr % HUGEPAGE_SIZE != 0 ||
+	    (unsigned long)sbi->virt_addr_2 % HUGEPAGE_SIZE != 0 ||
+	    (unsigned long)sbi->phys_addr_2 % HUGEPAGE_SIZE != 0) {
 		BUG();
 	}
 
