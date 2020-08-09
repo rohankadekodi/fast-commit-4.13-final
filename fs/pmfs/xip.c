@@ -524,7 +524,7 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 		pmfs_find_data_blocks(inode, start_blk, &block, 1);
 		if (block == 0)
 			new_sblk = true;
-		else
+		else if (pos < i_size_read(inode))
 			over_sblk = true;
 	}
 
@@ -533,7 +533,7 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 		pmfs_find_data_blocks(inode, end_blk, &block, 1);
 		if (block == 0)
 			new_eblk = true;
-		else
+		else if ((pos + count) < i_size_read(inode))
 			over_eblk = true;
 	}
 
@@ -738,7 +738,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 		pmfs_find_data_blocks(inode, start_blk, &block, 1);
 		if (block == 0)
 			new_sblk = true;
-		else
+		else if (pos < i_size_read(inode))
 			over_sblk = true;
 	}
 
@@ -747,7 +747,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 		pmfs_find_data_blocks(inode, end_blk, &block, 1);
 		if (block == 0)
 			new_eblk = true;
-		else
+		else if ((pos + count) < i_size_read(inode))
 			over_eblk = true;
 	}
 
