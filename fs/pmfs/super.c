@@ -101,6 +101,8 @@ static inline int pmfs_has_huge_ioremap(struct super_block *sb)
 	return sbi->s_mount_opt & PMFS_MOUNT_HUGEIOREMAP;
 }
 
+#define HUGEPAGE_SIZE 2097152
+
 static int pmfs_get_numa_block_info(struct super_block *sb,
 	struct pmfs_sb_info *sbi)
 {
@@ -111,7 +113,7 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 	unsigned long diff_blocks = 0;
 
 	size_2 = dax_direct_access(sbi->s_dax_dev,
-				   ((long)((512*PAGE_SIZE) + sbi->initsize) / PAGE_SIZE),
+				   ((long)((PAGE_SIZE * 512) + sbi->initsize) / PAGE_SIZE),
 				   LONG_MAX / PAGE_SIZE,
 				   &virt_addr_2, &__pfn_t_2) * PAGE_SIZE;
 	if (size_2 <= 0) {
@@ -123,9 +125,27 @@ static int pmfs_get_numa_block_info(struct super_block *sb,
 	diff_blocks = num_blocks % sbi->cpus;
 	num_blocks -= diff_blocks;
 
+	while ((u64)virt_addr2 % HUGEPAGE_SIZE != 0) {
+		virt_addr_2++;
+		phys_addr_2++;
+	}
+
+
 	sbi->virt_addr_2 = virt_addr_2;
 	sbi->phys_addr_2 = pfn_t_to_pfn(__pfn_t_2) << PAGE_SHIFT;
 	sbi->initsize_2 = num_blocks << PAGE_SHIFT;
+
+	if (sbi->virt_addr % HUGEPAGE_SIZE != 0 ||
+	    sbi->phys_addr % HUGEPAGE_SIZE != 0 ||
+	    sbi->virt_addr_2 % HUGEPAGE_SIZE != 0 ||
+	    sbi->phys_addr_2 % HUGEPAGE_SIZE != 0) {
+		BUG();
+	}
+
+	pmfs_info("%s: sbi->virt_addr = 0x%016llx, sbi->phys_addr = 0x%016llx "
+		  "sbi->virt_addr_2 = 0x%016llx, sbi->phys_addr_2 = 0x%016llx\n",
+		  __func__, sbi->virt_addr, sbi->phys_addr,
+		  sbi->virt_addr_2, sbi->phys_addr_2);
 
 	return 0;
 }
@@ -411,6 +431,11 @@ static struct pmfs_inode *pmfs_init(struct super_block *sb,
 
 		sbi->block_end[1] = sbi->block_start[1] +
 			((unsigned long)(size_2) >> PAGE_SHIFT);
+
+		if (sbi->block_start[0] % 512 != 0 ||
+		    sbi->block_start[1] % 512 != 0) {
+			BUG();
+		}
 	}
 
 	sbi->num_free_blocks = ((unsigned long)(size + size_2) >> PAGE_SHIFT);

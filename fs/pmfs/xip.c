@@ -1161,6 +1161,7 @@ int pmfs_insert_write_vma(struct vm_area_struct *vma)
 			 vma->vm_pgoff);
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
+
 	if (sbi->num_numa_nodes > 1 && pi->numa_node != sbi->cpu_numa_node[cpu]) {
 		proc_numa = &(sbi->process_numa[current->tgid % sbi->num_parallel_procs]);
 		if (proc_numa->tgid == current->tgid)

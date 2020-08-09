@@ -168,6 +168,7 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 		free_list->num_blocknode_huge_aligned = 0;
 		free_list->first_node_unaligned = NULL;
 		free_list->first_node_huge_aligned = NULL;
+
 		aligned_start = free_list->block_start;
 		aligned_end = free_list->block_end;
 
@@ -253,15 +254,6 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 			return;
 		}
 
-		pmfs_dbg("%s: free list %d: block start %lu, end %lu, "
-			 "%lu free blocks. num_aligned_nodes = %lu, "
-			 "num_unaligned_nodes = %lu\n",
-			 __func__, i,
-			 free_list->block_start,
-			 free_list->block_end,
-			 free_list->num_free_blocks,
-			 free_list->num_blocknode_huge_aligned,
-			 free_list->num_blocknode_unaligned);
 	}
 
 	if (sbi->num_numa_nodes == 2) {
@@ -274,6 +266,19 @@ void pmfs_init_blockmap(struct super_block *sb, unsigned long init_used_size)
 				swap_free_lists(sb, i, j);
 			}
 		}
+	}
+
+	for (i = 0; i < sbi->cpus; i++) {
+		free_list = pmfs_get_free_list(sb, i);
+		pmfs_dbg("%s: free list %d: block start %lu, end %lu, "
+			 "%lu free blocks. num_aligned_nodes = %lu, "
+			 "num_unaligned_nodes = %lu\n",
+			 __func__, i,
+			 free_list->block_start,
+			 free_list->block_end,
+			 free_list->num_free_blocks,
+			 free_list->num_blocknode_huge_aligned,
+			 free_list->num_blocknode_unaligned);
 	}
 }
 
