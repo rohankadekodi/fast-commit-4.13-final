@@ -574,46 +574,48 @@ ssize_t pmfs_xip_cow_file_write(struct file *filp, const char __user *buf,
 
 	pmfs_commit_transaction(sb, trans);
 
-	trans = pmfs_new_transaction(sb, max_logentries);
-	if (IS_ERR(trans)) {
-		ret = PTR_ERR(trans);
-		goto out;
-	}
+	if (num_inplace_blks > 0) {
+		trans = pmfs_new_transaction(sb, max_logentries);
+		if (IS_ERR(trans)) {
+			ret = PTR_ERR(trans);
+			goto out;
+		}
 
-	free_blk_list_idx = 0;
-	for (idx = 0; idx < log_entry_idx; idx++) {
-		pmfs_add_logentry(sb, trans, (void *)log_entries[idx],
-				  (size_t)log_entry_nums[idx] << 3, LE_DATA);
+		free_blk_list_idx = 0;
+		for (idx = 0; idx < log_entry_idx; idx++) {
+			pmfs_add_logentry(sb, trans, (void *)log_entries[idx],
+					  (size_t)log_entry_nums[idx] << 3, LE_DATA);
 
-		for (idx2 = 0; idx2 < log_entry_nums[idx]; idx2++) {
-			block_val = *(log_entries[idx] + (idx2));
-			if (block_val != 0) {
-				free_blk_list[free_blk_list_idx] = block_val;
-				*(log_entries[idx] + (idx2)) = inplace_blk_list[free_blk_list_idx];
-				free_blk_list_idx++;
+			for (idx2 = 0; idx2 < log_entry_nums[idx]; idx2++) {
+				block_val = *(log_entries[idx] + (idx2));
+				if (block_val != 0) {
+					free_blk_list[free_blk_list_idx] = block_val;
+					*(log_entries[idx] + (idx2)) = inplace_blk_list[free_blk_list_idx];
+					free_blk_list_idx++;
+				}
 			}
 		}
-	}
 
-	written = __pmfs_xip_file_write(mapping, buf, count, pos, ppos);
-	if (written < 0 || written != count)
-		pmfs_dbg_verbose("write incomplete/failed: written %ld len %ld"
-				 " pos %llx start_blk %lx num_blocks %lx\n",
-				 written, count, pos, start_blk, num_blocks);
+		written = __pmfs_xip_file_write(mapping, buf, count, pos, ppos);
+		if (written < 0 || written != count)
+			pmfs_dbg_verbose("write incomplete/failed: written %ld len %ld"
+					 " pos %llx start_blk %lx num_blocks %lx\n",
+					 written, count, pos, start_blk, num_blocks);
 
-	pmfs_commit_transaction(sb, trans);
+		pmfs_commit_transaction(sb, trans);
 
-	if (free_blk_list != NULL && num_inplace_blks != 0) {
-		truncate_strong_guarantees(sb, free_blk_list,
-					   free_blk_list_idx,
-					   pi->i_blk_type);
-		kfree(free_blk_list);
-		kfree(log_entries);
-		kfree(log_entry_nums);
-		kfree(inplace_blk_list);
-		free_blk_list = NULL;
-		num_inplace_blks = 0;
-		log_entry_idx = 0;
+		if (free_blk_list != NULL && num_inplace_blks != 0) {
+			truncate_strong_guarantees(sb, free_blk_list,
+						   free_blk_list_idx,
+						   pi->i_blk_type);
+			kfree(free_blk_list);
+			kfree(log_entries);
+			kfree(log_entry_nums);
+			kfree(inplace_blk_list);
+			free_blk_list = NULL;
+			num_inplace_blks = 0;
+			log_entry_idx = 0;
+		}
 	}
 
 	ret = written;
