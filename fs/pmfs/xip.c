@@ -686,7 +686,7 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 		sched_setaffinity(current->pid, &(sbi->numa_cpus[pi->numa_node].cpumask));
 	}
 
-	if (strong_guarantees && pi->huge_aligned_file) {
+	if (strong_guarantees && pi->huge_aligned_file && pos < i_size_read(inode)) {
 		inode_unlock(inode);
 		sb_end_write(inode->i_sb);
 		return pmfs_xip_cow_file_write(filp, buf, len, ppos);
