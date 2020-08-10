@@ -1106,6 +1106,17 @@ static int pmfs_xip_huge_file_fault(struct vm_fault *vmf,
 
 }
 
+static int pmfs_dax_fault(struct vm_fault *vmf)
+{
+	struct address_space *mapping = vmf->vma->vm_file->f_mapping;
+	struct inode *inode = mapping->host;
+
+	pmfs_dbg_verbose("%s: inode %lu, pgoff %lu, flags 0x%x\n",
+		  __func__, inode->i_ino, vmf->pgoff, vmf->flags);
+
+	return pmfs_xip_huge_file_fault(vmf, PE_SIZE_PTE);
+}
+
 static int pmfs_xip_file_fault(struct vm_fault *vmf)
 {
 	int ret = 0;
@@ -1295,9 +1306,9 @@ static void pmfs_vma_close(struct vm_area_struct *vma)
 }
 
 static const struct vm_operations_struct pmfs_xip_vm_ops = {
-	.fault	= pmfs_xip_file_fault,
+	.fault	= pmfs_dax_fault,
 	.huge_fault = pmfs_xip_huge_file_fault,
-	.page_mkwrite = pmfs_xip_file_fault,
+	.page_mkwrite = pmfs_dax_fault,
 	.pfn_mkwrite = pmfs_dax_pfn_mkwrite,
 	.open = pmfs_vma_open,
 	.close = pmfs_vma_close,
