@@ -1075,6 +1075,40 @@ alloc:
 	return ret_blocks / pmfs_get_numblocks(btype);
 }
 
+unsigned int pmfs_get_free_numa_node(struct super_block *sb)
+{
+	struct pmfs_sb_info *sbi = PMFS_SB(sb);
+	struct free_list *free_list;
+	unsigned long num_free_blocks_node_1 = 0;
+	unsigned long num_free_blocks_node_2 = 0;
+
+	int i;
+
+	if (sbi->num_numa_nodes == 2) {
+		if (sbi->cpus == 96) {
+			for (i = 0; i < sbi->cpus; i++) {
+				free_list = pmfs_get_free_list(sb, i);
+				if (i < 24 || (i >= 48 && i < 72))
+					num_free_blocks_node_1 += free_list->num_free_blocks;
+				else
+					num_free_blocks_node_2 += free_list->num_free_blocks;
+			}
+		} else if (sbi->cpus == 32) {
+			for (i = 0; i < sbi->cpus; i++) {
+				free_list = pmfs_get_free_list(sb, i);
+				if (i < 8 || (i >= 16 && i < 24))
+					num_free_blocks_node_1 += free_list->num_free_blocks;
+				else
+					num_free_blocks_node_2 += free_list->num_free_blocks;
+			}
+		}
+	}
+
+	if (num_free_blocks_node_1 >= num_free_blocks_node_2)
+		return 0;
+	return 1;
+}
+
 unsigned long pmfs_count_free_blocks(struct super_block *sb)
 {
 	struct pmfs_sb_info *sbi = PMFS_SB(sb);

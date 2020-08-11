@@ -1586,7 +1586,7 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	struct pmfs_inode_info_header *sih = NULL;
 	unsigned long free_ino = 0;
 	int map_id;
-	struct process_numa *proc_numa;
+	struct process_numa *proc_numa, *parent_proc_numa;
 	pid_t parent_pid;
 	struct task_struct *parent_task;
 	int parent_cpu, parent_numa;
@@ -1648,12 +1648,16 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 	pi->huge_aligned_file = 0;
 	proc_numa = &(sbi->process_numa[current->tgid % sbi->num_parallel_procs]);
 	if (proc_numa->tgid != current->tgid) {
+		proc_numa->tgid = current->tgid;
+
 		parent_pid = task_ppid_nr(current);
 		parent_task = find_task_by_pid_ns(parent_pid, &init_pid_ns);
-		parent_cpu = parent_task->cpu;
-		parent_numa = pmfs_get_numa_node(sb, parent_cpu);
-		proc_numa->tgid = current->tgid;
-		proc_numa->numa_node = parent_numa;
+		parent_proc_numa = &(sbi->process_numa[parent_task->tgid % sbi->num_parallel_procs]);
+
+		if (parent_proc_numa->tgid != parent_task->tgid)
+			proc_numa->numa_node = pmfs_get_free_numa_node(sb);
+		else
+			proc_numa->numa_node = parent_proc_numa->numa_node;
 	}
 
 	pi->numa_node = proc_numa->numa_node;

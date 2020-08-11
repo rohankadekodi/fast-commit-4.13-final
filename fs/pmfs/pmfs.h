@@ -175,6 +175,7 @@ extern int pmfs_new_blocks(struct super_block *sb, unsigned long *blocknr,
 			   unsigned int num, unsigned short btype, int zero,
 			   int cpu);
 extern unsigned long pmfs_count_free_blocks(struct super_block *sb);
+extern unsigned int pmfs_get_free_numa_node(struct super_block *sb);
 
 /* dir.c */
 extern int pmfs_add_entry(pmfs_transaction_t *trans,
